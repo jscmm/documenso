@@ -1,0 +1,109 @@
+name: Build image
+
+# Builds the production image and pushes it to this repository's GitHub
+# Container Registry namespace. Runs when a build tag is pushed (arm64,
+# for ARM-based Fargate) and can also be started by hand for any tag or
+# platform. Nothing is deployed automatically: deploying the image is a
+# separate, manual step outside this repository.
+#
+# No secrets are required: the workflow authenticates to ghcr.io with the
+# token GitHub issues to the run. The image contains only what is in this
+# repository (no certificates, no settings).
+#
+# Build tags look like v2.17.0-custom.1: the upstream release the code is
+# based on, then a build counter. Each run produces one immutable image tag.
+
+on:
+  push:
+    tags:
+      - 'v*-custom.*'
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Build tag to build (e.g. v2.17.0-custom.1)'
+        required: true
+        type: string
+      platform:
+        description: 'Target platform'
+        required: true
+        default: linux/arm64
+        type: choice
+        options:
+          - linux/arm64
+          - linux/amd64
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: build-image-${{ inputs.ref || github.ref_name }}-${{ inputs.platform || 'linux/arm64' }}
+  cancel-in-progress: false
+
+env:
+  IMAGE: ghcr.io/${{ github.repository }}
+  # Tag pushes build arm64; manual runs choose.
+  PLATFORM: ${{ inputs.platform || 'linux/arm64' }}
+
+jobs:
+  build_and_push:
+    name: Build and push
+    # Native runner per platform: no emulation, so the arm64 build (the
+    # default, for ARM-based Fargate) runs at full speed.
+    runs-on: ${{ inputs.platform == 'linux/amd64' && 'ubuntu-latest' || 'ubuntu-24.04-arm' }}
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+          fetch-tags: true
+
+      - name: Resolve image tags
+        id: meta
+        run: |
+          GIT_SHA="$(git rev-parse HEAD)"
+          BUILD_TAG="$(git name-rev --tags --name-only "$GIT_SHA" | head -n 1 | sed 's/\^0//')"
+
+          if [ -z "$BUILD_TAG" ] || [ "$BUILD_TAG" = "undefined" ]; then
+            BUILD_TAG="sha-${GIT_SHA::12}"
+          fi
+
+          echo "sha=$GIT_SHA" >> "$GITHUB_OUTPUT"
+          echo "build_tag=$BUILD_TAG" >> "$GITHUB_OUTPUT"
+          echo "Building $BUILD_TAG ($GIT_SHA)"
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./docker/Dockerfile
+          platforms: ${{ env.PLATFORM }}
+          push: true
+          provenance: false
+          tags: |
+            ${{ env.IMAGE }}:${{ steps.meta.outputs.build_tag }}
+            ${{ env.IMAGE }}:${{ steps.meta.outputs.sha }}
+          cache-from: type=gha,scope=${{ env.PLATFORM }}
+          cache-to: type=gha,mode=max,scope=${{ env.PLATFORM }}
+
+      - name: Summary
+        run: |
+          {
+            echo "### Image pushed (${{ env.PLATFORM }})"
+            echo
+            echo '```'
+            echo "${{ env.IMAGE }}:${{ steps.meta.outputs.build_tag }}"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
