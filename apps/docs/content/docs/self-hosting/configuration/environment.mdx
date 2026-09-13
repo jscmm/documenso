@@ -280,6 +280,7 @@ For detailed certificate setup, see [Signing Certificate](/docs/self-hosting/con
 | `NEXT_PUBLIC_DISABLE_OIDC_AUTO_REDIRECT`     | Disable the automatic `/signin` redirect when OIDC is the only enabled transport    | `false` |
 | `NEXT_PUBLIC_POSTHOG_KEY`             | PostHog API key for analytics and feature flags                                     |         |
 | `NEXT_PUBLIC_FEATURE_BILLING_ENABLED` | Enable billing features                                                             | `false` |
+| `NEXT_PUBLIC_AUTO_SIGN_THRESHOLD`     | Offer the auto-sign dialog when a recipient has more than this many auto-signable fields (name, initials, email, date); `0` offers it for any such field | `5`     |
 
 ### Signup Restrictions
 
