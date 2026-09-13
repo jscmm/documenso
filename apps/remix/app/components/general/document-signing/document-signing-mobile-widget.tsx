@@ -1,3 +1,4 @@
+import { SOURCE_CODE_URL } from '@documenso/lib/constants/app';
 import { Button } from '@documenso/ui/primitives/button';
 
 import { Plural, Trans } from '@lingui/react/macro';
@@ -108,6 +109,15 @@ export const DocumentSigningMobileWidget = () => {
           {isExpanded && (
             <div className="slide-in-from-bottom-2 animate-in border-border border-t p-4 duration-200">
               <EnvelopeSignerForm />
+
+              <a
+                href={SOURCE_CODE_URL()}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-4 block text-muted-foreground text-xs hover:text-foreground"
+              >
+                <Trans>Source code</Trans>
+              </a>
 
               {!hidePoweredBy && (
                 <div className="mt-2 inline-block rounded bg-primary px-2 py-1 font-medium text-primary-foreground text-xs opacity-60 hover:opacity-100 lg:hidden">
