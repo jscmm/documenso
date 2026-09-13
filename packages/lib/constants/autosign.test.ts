@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { getAutoSignThreshold } from './autosign';
+import { getAutoInsertFieldTypes, getAutoSignThreshold } from './autosign';
 
 describe('getAutoSignThreshold', () => {
   afterEach(() => {
@@ -35,5 +35,32 @@ describe('getAutoSignThreshold', () => {
 
     vi.stubEnv('NEXT_PUBLIC_AUTO_SIGN_THRESHOLD', 'many');
     expect(getAutoSignThreshold()).toBe(5);
+  });
+});
+
+describe('getAutoInsertFieldTypes', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it('returns no types when the variable is unset or blank', () => {
+    vi.stubEnv('NEXT_PUBLIC_AUTO_INSERT_FIELD_TYPES', undefined);
+    expect(getAutoInsertFieldTypes()).toEqual([]);
+
+    vi.stubEnv('NEXT_PUBLIC_AUTO_INSERT_FIELD_TYPES', '');
+    expect(getAutoInsertFieldTypes()).toEqual([]);
+  });
+
+  it('parses a comma-separated list case-insensitively', () => {
+    vi.stubEnv('NEXT_PUBLIC_AUTO_INSERT_FIELD_TYPES', 'NAME');
+    expect(getAutoInsertFieldTypes()).toEqual(['NAME']);
+
+    vi.stubEnv('NEXT_PUBLIC_AUTO_INSERT_FIELD_TYPES', ' email , name ');
+    expect(getAutoInsertFieldTypes()).toEqual(['NAME', 'EMAIL']);
+  });
+
+  it('ignores unsupported types', () => {
+    vi.stubEnv('NEXT_PUBLIC_AUTO_INSERT_FIELD_TYPES', 'SIGNATURE,NAME,DATE,bogus');
+    expect(getAutoInsertFieldTypes()).toEqual(['NAME']);
   });
 });

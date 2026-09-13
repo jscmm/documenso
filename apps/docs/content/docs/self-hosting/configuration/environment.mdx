@@ -282,6 +282,7 @@ For detailed certificate setup, see [Signing Certificate](/docs/self-hosting/con
 | `NEXT_PUBLIC_POSTHOG_KEY`             | PostHog API key for analytics and feature flags                                     |         |
 | `NEXT_PUBLIC_FEATURE_BILLING_ENABLED` | Enable billing features                                                             | `false` |
 | `NEXT_PUBLIC_AUTO_SIGN_THRESHOLD`     | Offer the auto-sign dialog when a recipient has more than this many auto-signable fields (name, initials, email, date); `0` offers it for any such field | `5`     |
+| `NEXT_PUBLIC_AUTO_INSERT_FIELD_TYPES` | Comma-separated field types (`NAME`, `EMAIL`) filled in for the recipient without a click on V2 envelopes, like `DATE` fields always are; the server inserts them at completion |         |
 
 ### Signup Restrictions
 

@@ -1,3 +1,4 @@
+import { getAutoInsertFieldTypes } from '@documenso/lib/constants/autosign';
 import { DEFAULT_DOCUMENT_DATE_FORMAT } from '@documenso/lib/constants/date-formats';
 import { DEFAULT_DOCUMENT_TIME_ZONE } from '@documenso/lib/constants/time-zones';
 import { DOCUMENT_AUDIT_LOG_TYPE, RECIPIENT_DIFF_TYPE } from '@documenso/lib/types/document-audit-logs';
@@ -213,9 +214,6 @@ export const completeDocumentWithToken = async ({
     },
   });
 
-  // This should be scoped to the current recipient.
-  const uninsertedDateFields = fields.filter((field) => field.type === FieldType.DATE && !field.inserted);
-
   let recipientName = recipient.name;
   let recipientEmail = recipient.email;
 
@@ -245,31 +243,49 @@ export const completeDocumentWithToken = async ({
     });
   }
 
-  // Auto-insert all un-inserted date fields for V2 envelopes at completion time.
-  if (envelope.internalVersion === 2 && uninsertedDateFields.length > 0) {
-    const formattedDate = DateTime.now()
-      .setZone(envelope.documentMeta?.timezone ?? DEFAULT_DOCUMENT_TIME_ZONE)
-      .toFormat(envelope.documentMeta?.dateFormat ?? DEFAULT_DOCUMENT_DATE_FORMAT);
+  // Auto-insert fields for V2 envelopes at completion time: always DATE, plus
+  // the NAME/EMAIL types enabled with NEXT_PUBLIC_AUTO_INSERT_FIELD_TYPES. The
+  // signing page shows these prefilled so the recipient never has to click them.
+  const formattedDate = DateTime.now()
+    .setZone(envelope.documentMeta?.timezone ?? DEFAULT_DOCUMENT_TIME_ZONE)
+    .toFormat(envelope.documentMeta?.dateFormat ?? DEFAULT_DOCUMENT_DATE_FORMAT);
 
-    const newDateFieldValues = {
-      customText: formattedDate,
-      inserted: true,
-    };
+  const autoInsertValues = new Map<FieldType, string>([[FieldType.DATE, formattedDate]]);
 
-    await prisma.field.updateMany({
-      where: {
-        id: {
-          in: uninsertedDateFields.map((field) => field.id),
+  for (const type of getAutoInsertFieldTypes()) {
+    const value = type === FieldType.NAME ? recipientName : type === FieldType.EMAIL ? recipientEmail : '';
+
+    if (value) {
+      autoInsertValues.set(type, value);
+    }
+  }
+
+  const fieldsToAutoInsert = fields.filter((field) => !field.inserted && autoInsertValues.has(field.type));
+
+  if (envelope.internalVersion === 2 && fieldsToAutoInsert.length > 0) {
+    for (const [type, customText] of autoInsertValues) {
+      const fieldIds = fieldsToAutoInsert.filter((field) => field.type === type).map((field) => field.id);
+
+      if (fieldIds.length === 0) {
+        continue;
+      }
+
+      await prisma.field.updateMany({
+        where: {
+          id: {
+            in: fieldIds,
+          },
         },
-      },
-      data: {
-        ...newDateFieldValues,
-      },
-    });
+        data: {
+          customText,
+          inserted: true,
+        },
+      });
+    }
 
-    // Create audit log entries for each auto-inserted date field.
+    // Create audit log entries for each auto-inserted field.
     await prisma.documentAuditLog.createMany({
-      data: uninsertedDateFields.map((field) =>
+      data: fieldsToAutoInsert.map((field) =>
         createDocumentAuditLogData({
           type: DOCUMENT_AUDIT_LOG_TYPE.DOCUMENT_FIELD_INSERTED,
           envelopeId: envelope.id,
@@ -285,8 +301,8 @@ export const completeDocumentWithToken = async ({
             recipientRole: recipient.role,
             fieldId: field.secondaryId,
             field: {
-              type: FieldType.DATE,
-              data: formattedDate,
+              type: field.type,
+              data: autoInsertValues.get(field.type) ?? '',
             },
           },
         }),
@@ -295,10 +311,13 @@ export const completeDocumentWithToken = async ({
 
     // Update the local fields array so the subsequent validation check passes.
     fields = fields.map((field) => {
-      if (field.type === FieldType.DATE && !field.inserted) {
+      const customText = autoInsertValues.get(field.type);
+
+      if (!field.inserted && customText) {
         return {
           ...field,
-          ...newDateFieldValues,
+          customText,
+          inserted: true,
         };
       }
 
