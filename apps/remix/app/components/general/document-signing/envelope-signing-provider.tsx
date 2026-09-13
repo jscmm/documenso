@@ -1,3 +1,4 @@
+import { getAutoInsertFieldTypes } from '@documenso/lib/constants/autosign';
 import { DEFAULT_DOCUMENT_DATE_FORMAT } from '@documenso/lib/constants/date-formats';
 import { isBase64Image } from '@documenso/lib/constants/signatures';
 import { DEFAULT_DOCUMENT_TIME_ZONE } from '@documenso/lib/constants/time-zones';
@@ -74,28 +75,61 @@ export interface EnvelopeSigningProviderProps {
   children: React.ReactNode;
 }
 
+type PrefillableField = { type: FieldType; inserted: boolean; customText: string; fieldMeta: unknown };
+
+type PrefillOwner = { name: string; email: string };
+
 /**
- * Inject prefilled date fields for the current recipient.
+ * Inject prefilled fields for the recipients so they show up without a click.
  *
- * The dates are filled in correctly when the recipient "completes" the document.
+ * DATE fields are always prefilled. NAME and EMAIL fields are prefilled when
+ * enabled with NEXT_PUBLIC_AUTO_INSERT_FIELD_TYPES and the recipient has the
+ * value. The real values are inserted by the server when the recipient
+ * "completes" the document.
  */
-const prefillDateFields = (data: EnvelopeForSigningResponse): EnvelopeForSigningResponse => {
+const prefillAutoInsertedFields = (data: EnvelopeForSigningResponse): EnvelopeForSigningResponse => {
   const { timezone, dateFormat } = data.envelope.documentMeta;
 
   const formattedDate = DateTime.now()
     .setZone(timezone ?? DEFAULT_DOCUMENT_TIME_ZONE)
     .toFormat(dateFormat ?? DEFAULT_DOCUMENT_DATE_FORMAT);
 
-  const prefillField = <T extends { type: FieldType; inserted: boolean; customText: string; fieldMeta: unknown }>(
-    field: T,
-  ): T => {
-    if (field.type !== FieldType.DATE || field.inserted) {
+  const autoInsertFieldTypes = getAutoInsertFieldTypes();
+
+  const getPrefillValue = (field: PrefillableField, owner: PrefillOwner): string | null => {
+    if (field.type === FieldType.DATE) {
+      return formattedDate;
+    }
+
+    if (!autoInsertFieldTypes.includes(field.type)) {
+      return null;
+    }
+
+    if (field.type === FieldType.NAME) {
+      return owner.name.trim() || null;
+    }
+
+    if (field.type === FieldType.EMAIL) {
+      return owner.email.trim() || null;
+    }
+
+    return null;
+  };
+
+  const prefillField = <T extends PrefillableField>(field: T, owner: PrefillOwner): T => {
+    if (field.inserted) {
+      return field;
+    }
+
+    const value = getPrefillValue(field, owner);
+
+    if (!value) {
       return field;
     }
 
     return {
       ...field,
-      customText: formattedDate,
+      customText: value,
       inserted: true,
       fieldMeta: {
         ...(typeof field.fieldMeta === 'object' ? field.fieldMeta : {}),
@@ -110,12 +144,12 @@ const prefillDateFields = (data: EnvelopeForSigningResponse): EnvelopeForSigning
       ...data.envelope,
       recipients: data.envelope.recipients.map((recipient) => ({
         ...recipient,
-        fields: recipient.fields.map(prefillField),
+        fields: recipient.fields.map((field) => prefillField(field, recipient)),
       })),
     },
     recipient: {
       ...data.recipient,
-      fields: data.recipient.fields.map(prefillField),
+      fields: data.recipient.fields.map((field) => prefillField(field, data.recipient)),
     },
   };
 };
@@ -127,7 +161,7 @@ export const EnvelopeSigningProvider = ({
   envelopeData: initialEnvelopeData,
   children,
 }: EnvelopeSigningProviderProps) => {
-  const [envelopeData, setEnvelopeData] = useState(() => prefillDateFields(initialEnvelopeData));
+  const [envelopeData, setEnvelopeData] = useState(() => prefillAutoInsertedFields(initialEnvelopeData));
 
   const { envelope, recipient } = envelopeData;
 

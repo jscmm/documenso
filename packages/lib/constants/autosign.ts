@@ -35,3 +35,31 @@ export const getAutoSignThreshold = (): number => {
 
   return parsed;
 };
+
+/**
+ * Field types that may be filled in for a recipient without a click. Both
+ * values come straight from the recipient record, so nothing is guessed.
+ */
+export const AUTO_INSERTABLE_FIELD_TYPES: FieldType[] = [FieldType.NAME, FieldType.EMAIL];
+
+/**
+ * Field types that are filled in for the recipient without a click on V2
+ * envelopes: the signing page shows them prefilled and read-only, and the
+ * server inserts them when the recipient completes, the same way DATE
+ * fields are always handled.
+ *
+ * Configured with `NEXT_PUBLIC_AUTO_INSERT_FIELD_TYPES` as a comma-separated
+ * list (e.g. `NAME` or `NAME,EMAIL`). Unknown values are ignored; unset means
+ * none, which keeps the default behaviour of requiring a click.
+ */
+export const getAutoInsertFieldTypes = (): FieldType[] => {
+  const raw = env('NEXT_PUBLIC_AUTO_INSERT_FIELD_TYPES');
+
+  if (!raw) {
+    return [];
+  }
+
+  const requested = raw.split(',').map((value) => value.trim().toUpperCase());
+
+  return AUTO_INSERTABLE_FIELD_TYPES.filter((type) => requested.includes(type));
+};
