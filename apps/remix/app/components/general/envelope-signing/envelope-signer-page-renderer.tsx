@@ -41,6 +41,7 @@ import { handleTextFieldClick } from '~/utils/field-signing/text-field';
 
 import { useRequiredDocumentSigningAuthContext } from '../document-signing/document-signing-auth-provider';
 import { useRequiredEnvelopeSigningContext } from '../document-signing/envelope-signing-provider';
+import { useFocusNextField } from './use-focus-next-field';
 
 type GenericLocalField = TEnvelope['fields'][number] & {
   recipient: Pick<Recipient, 'id' | 'name' | 'email' | 'signingStatus'>;
@@ -87,6 +88,8 @@ export const EnvelopeSignerPageRenderer = ({ pageData }: { pageData: PageRenderD
   const prevShowPendingFieldTooltip = useRef(showPendingFieldTooltip);
 
   const { onFieldSigned, onFieldUnsigned } = useEmbedSigningContext() || {};
+
+  const focusNextField = useFocusNextField();
 
   const { stage, pageLayer, konvaContainer, unscaledViewport } = usePageRenderer(
     ({ stage, pageLayer }) => createPageCanvas(stage, pageLayer),
@@ -492,6 +495,12 @@ export const EnvelopeSignerPageRenderer = ({ pageData }: { pageData: PageRenderD
   const signField = async (fieldId: number, payload: TSignEnvelopeFieldValue, authOptions?: TRecipientActionAuth) => {
     try {
       const { inserted } = await signFieldInternal(fieldId, payload, authOptions);
+
+      // Move the signer straight to the next remaining field so multi-field
+      // documents do not require hunting for each one.
+      if (inserted) {
+        focusNextField({ excludeFieldId: fieldId });
+      }
 
       // ?: The two callbacks below are used within the embedding context
       if (inserted && onFieldSigned) {

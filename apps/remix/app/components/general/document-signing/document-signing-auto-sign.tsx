@@ -1,5 +1,5 @@
 import { unsafe_useEffectOnce } from '@documenso/lib/client-only/hooks/use-effect-once';
-import { AUTO_SIGNABLE_FIELD_TYPES } from '@documenso/lib/constants/autosign';
+import { AUTO_SIGNABLE_FIELD_TYPES, getAutoSignThreshold } from '@documenso/lib/constants/autosign';
 import { DocumentAuth } from '@documenso/lib/types/document-auth';
 import { extractInitials } from '@documenso/lib/utils/recipient-formatter';
 import { trpc } from '@documenso/trpc/react';
@@ -33,12 +33,6 @@ const NON_AUTO_SIGNABLE_ACTION_AUTH_TYPES: string[] = [
   DocumentAuth.PASSWORD,
   DocumentAuth.TWO_FACTOR_AUTH,
 ];
-
-// The threshold for the number of fields that could be autosigned before displaying the dialog
-//
-// Reasoning: If there aren't that many fields, it's likely going to be easier to manually sign each one
-// while for larger documents with many fields it will be beneficial to sign away the boilerplate fields.
-const AUTO_SIGN_THRESHOLD = 5;
 
 export type DocumentSigningAutoSignProps = {
   recipient: Pick<Recipient, 'id' | 'token'>;
@@ -145,7 +139,12 @@ export const DocumentSigningAutoSign = ({ recipient, fields }: DocumentSigningAu
   };
 
   unsafe_useEffectOnce(() => {
-    if (actionAuthAllowsAutoSign && autoSignableFields.length > AUTO_SIGN_THRESHOLD) {
+    // The threshold for the number of fields that could be autosigned before displaying the dialog
+    //
+    // Reasoning: If there aren't that many fields, it's likely going to be easier to manually sign each one
+    // while for larger documents with many fields it will be beneficial to sign away the boilerplate fields.
+    // Deployments can lower it with NEXT_PUBLIC_AUTO_SIGN_THRESHOLD.
+    if (actionAuthAllowsAutoSign && autoSignableFields.length > getAutoSignThreshold()) {
       setOpen(true);
     }
   });

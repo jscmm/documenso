@@ -66,6 +66,14 @@ export const API_V2_URL = '/api/v2';
 
 export const SUPPORT_EMAIL = env('NEXT_PUBLIC_SUPPORT_EMAIL') ?? 'support@documenso.com';
 
+/**
+ * Where the source code of the running instance can be obtained. Deployments
+ * that modify Documenso should point this at their own repository so users
+ * interacting with the instance are offered the corresponding source, as the
+ * AGPL-3.0 licence requires.
+ */
+export const SOURCE_CODE_URL = () => env('NEXT_PUBLIC_SOURCE_CODE_URL') || 'https://github.com/documenso/documenso';
+
 export const USE_INTERNAL_URL_BROWSERLESS = () => env('NEXT_PUBLIC_USE_INTERNAL_URL_BROWSERLESS') === 'true';
 
 /**

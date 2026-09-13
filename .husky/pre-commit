@@ -1,6 +1,18 @@
 SCRIPT_DIR="$(readlink -f "$(dirname "$0")")"
 MONOREPO_ROOT="$(readlink -f "$SCRIPT_DIR/../")"
 
+# Block commits that contain secrets (API keys, private keys, tokens).
+if ! command -v gitleaks >/dev/null 2>&1; then
+  echo "gitleaks is required for the pre-commit secret scan."
+  echo "Install it (https://github.com/gitleaks/gitleaks#installing) and retry."
+  exit 1
+fi
+
+gitleaks git --pre-commit --staged --redact=100 --no-banner || {
+  echo "Secret scan failed: remove the flagged content before committing."
+  exit 1
+}
+
 echo "Copying .well-known/ contents"
 node "$MONOREPO_ROOT/scripts/copy-wellknown.cjs"
 

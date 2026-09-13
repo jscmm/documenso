@@ -25,6 +25,7 @@ These variables must be set for Documenso to function:
 | ---------------------------------- | ------------------------------------------------------------ | -------------------------------- |
 | `PORT`                             | Port the server listens on                                   | `3000`                           |
 | `NEXT_PRIVATE_INTERNAL_WEBAPP_URL` | Internal URL for the app to request itself (background jobs) | Same as `NEXT_PUBLIC_WEBAPP_URL` |
+| `NEXT_PUBLIC_SOURCE_CODE_URL`      | Link shown to signers for obtaining this instance's source code; set it to your repository when running a modified version (AGPL-3.0 §13) | `https://github.com/documenso/documenso` |
 
 ---
 
@@ -280,6 +281,7 @@ For detailed certificate setup, see [Signing Certificate](/docs/self-hosting/con
 | `NEXT_PUBLIC_DISABLE_OIDC_AUTO_REDIRECT`     | Disable the automatic `/signin` redirect when OIDC is the only enabled transport    | `false` |
 | `NEXT_PUBLIC_POSTHOG_KEY`             | PostHog API key for analytics and feature flags                                     |         |
 | `NEXT_PUBLIC_FEATURE_BILLING_ENABLED` | Enable billing features                                                             | `false` |
+| `NEXT_PUBLIC_AUTO_SIGN_THRESHOLD`     | Offer the auto-sign dialog when a recipient has more than this many auto-signable fields (name, initials, email, date); `0` offers it for any such field | `5`     |
 
 ### Signup Restrictions
 

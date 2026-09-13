@@ -1,4 +1,5 @@
 import { useCurrentEnvelopeRender } from '@documenso/lib/client-only/providers/envelope-render-provider';
+import { SOURCE_CODE_URL } from '@documenso/lib/constants/app';
 import { PDF_VIEWER_ERROR_MESSAGES } from '@documenso/lib/constants/pdf-viewer-i18n';
 import { mapSecondaryIdToDocumentId } from '@documenso/lib/utils/envelope';
 import { cn } from '@documenso/ui/lib/utils';
@@ -231,6 +232,15 @@ export const DocumentSigningPageViewV2 = () => {
                   </Button>
                 </div>
               )}
+
+              <a
+                href={SOURCE_CODE_URL()}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-2 block px-4 pb-2 text-muted-foreground text-xs hover:text-foreground"
+              >
+                <Trans>Source code</Trans>
+              </a>
             </div>
           </div>
         </div>
