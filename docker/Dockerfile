@@ -86,6 +86,10 @@ COPY turbo.json turbo.json
 
 RUN npm install -g "turbo@^2.10.0"
 
+# Type-checking and bundling the app needs more heap than Node's default,
+# which V8 sizes from the machine's RAM (about 2 GB inside an 8 GB VM).
+ENV NODE_OPTIONS="--max-old-space-size=4096"
+
 RUN turbo run build --filter=@documenso/remix...
 
 ###########################
