@@ -31,7 +31,7 @@ export const ensureFontLibrary = () => {
   if (!FontLibrary.has('Noto Sans')) {
     // eslint-disable-next-line react-hooks/rules-of-hooks
     FontLibrary.use({
-      ['Noto Sans']: [path.join(fontPath, 'noto-sans.ttf')],
+      ['Noto Sans']: [path.join(fontPath, 'noto-sans.ttf'), path.join(fontPath, 'noto-sans-italic.ttf')],
       ['Noto Sans Japanese']: [path.join(fontPath, 'noto-sans-japanese.ttf')],
       ['Noto Sans Chinese']: [path.join(fontPath, 'noto-sans-chinese.ttf')],
       ['Noto Sans Korean']: [path.join(fontPath, 'noto-sans-korean.ttf')],

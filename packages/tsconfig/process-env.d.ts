@@ -63,6 +63,9 @@ declare namespace NodeJS {
     NEXT_PUBLIC_AUTO_SIGN_THRESHOLD?: string;
     NEXT_PUBLIC_AUTO_INSERT_FIELD_TYPES?: string;
     NEXT_PUBLIC_SOURCE_CODE_URL?: string;
+    NEXT_PUBLIC_FIELD_TEXT_COLOR?: string;
+    NEXT_PUBLIC_FIELD_TEXT_FONT_STYLE?: string;
+    NEXT_PUBLIC_FIELD_TEXT_STYLE_TYPES?: string;
     NEXT_PRIVATE_USE_LEGACY_SIGNING_SUBFILTER?: string;
 
     NEXT_PRIVATE_SMTP_TRANSPORT?: 'mailchannels' | 'resend' | 'smtp-auth' | 'smtp-api';

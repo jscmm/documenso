@@ -1,5 +1,6 @@
 import Konva from 'konva';
 
+import { getFieldValueTextStyle } from '../../constants/field-style';
 import { DEFAULT_STANDARD_FONT_SIZE } from '../../constants/pdf';
 import type { GenericTextFieldTypeMetas } from '../../types/field-meta';
 import {
@@ -12,7 +13,6 @@ import {
 import { calculateOverflowLayout } from './calculate-overflow-layout';
 import {
   createFieldHoverInteraction,
-  konvaTextFill,
   konvaTextFontFamily,
   upsertFieldGroup,
   upsertFieldRect,
@@ -104,12 +104,16 @@ const upsertFieldText = (field: FieldToRender, options: RenderFieldElementOption
     }
   }
 
+  // Inserted values may carry a configured colour and font style; labels stay plain.
+  const { fill: textFill, fontStyle: textFontStyle } = getFieldValueTextStyle(field.type, isLabel);
+
   const overflowLayout = calculateOverflowLayout({
     overflowMode: resolveFieldOverflowMode(fieldMeta),
     isLabel,
     textToRender,
     fontSize: textFontSize,
     fontFamily: konvaTextFontFamily,
+    fontStyle: textFontStyle,
     lineHeight: textLineHeight,
     letterSpacing: textLetterSpacing,
     textAlign,
@@ -137,7 +141,8 @@ const upsertFieldText = (field: FieldToRender, options: RenderFieldElementOption
     lineHeight: textLineHeight,
     letterSpacing: textLetterSpacing,
     fontFamily: konvaTextFontFamily,
-    fill: konvaTextFill,
+    fontStyle: textFontStyle,
+    fill: textFill,
     width: overflowLayout.width,
     height: overflowLayout.height,
   } satisfies Partial<Konva.TextConfig>);
@@ -147,6 +152,7 @@ const upsertFieldText = (field: FieldToRender, options: RenderFieldElementOption
     isLabel,
     textToRender,
     textFontSize,
+    textFontStyle,
     textAlign,
     textVerticalAlign,
     textLineHeight,
@@ -178,6 +184,7 @@ export const renderGenericTextFieldElement = (field: FieldToRender, options: Ren
     isLabel,
     textToRender,
     textFontSize,
+    textFontStyle,
     textAlign,
     textVerticalAlign,
     textLineHeight,
@@ -222,6 +229,7 @@ export const renderGenericTextFieldElement = (field: FieldToRender, options: Ren
       textToRender,
       fontSize: textFontSize,
       fontFamily: konvaTextFontFamily,
+      fontStyle: textFontStyle,
       lineHeight: textLineHeight,
       letterSpacing: textLetterSpacing,
       textAlign,
