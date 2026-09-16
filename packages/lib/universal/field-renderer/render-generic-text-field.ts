@@ -112,7 +112,7 @@ const upsertFieldText = (field: FieldToRender, options: RenderFieldElementOption
   // sized to the box, rather than the field font.
   const isInitials = field.type === 'INITIALS' && !isLabel && textToRender.length > 0;
   const textFontFamily = isInitials ? getSignatureFontFamily(textToRender) : konvaTextFontFamily;
-  const renderFontSize = isInitials ? Math.max(textFontSize, Math.min(fieldHeight * 0.8, 24)) : textFontSize;
+  const renderFontSize = isInitials ? Math.max(textFontSize, Math.min(fieldHeight * 0.7, 24)) : textFontSize;
 
   const overflowLayout = calculateOverflowLayout({
     overflowMode: resolveFieldOverflowMode(fieldMeta),
