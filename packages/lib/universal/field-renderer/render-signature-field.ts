@@ -5,6 +5,7 @@ import { AppError } from '../../errors/app-error';
 import type { TSignatureFieldMeta } from '../../types/field-meta';
 import { resolveFieldOverflowMode } from '../../types/field-meta';
 import { calculateOverflowLayout } from './calculate-overflow-layout';
+import { renderSignatureFrame } from './field-frame';
 import { createFieldHoverInteraction, upsertFieldGroup, upsertFieldRect } from './field-generic-items';
 import type { FieldToRender, RenderFieldElementOptions } from './field-renderer';
 import { calculateFieldPosition } from './field-renderer';
@@ -240,6 +241,16 @@ export const renderSignatureFieldElement = (field: FieldToRender, options: Rende
 
   fieldGroup.add(fieldRect);
   fieldGroup.add(fieldSignature);
+
+  const { fieldWidth: frameWidth, fieldHeight: frameHeight } = calculateFieldPosition(field, pageWidth, pageHeight);
+  renderSignatureFrame({
+    fieldGroup,
+    width: frameWidth,
+    height: frameHeight,
+    caption: 'Signed by:',
+    mode,
+    inserted: Boolean(field.inserted),
+  });
 
   fieldGroup.on('transform', () => {
     const groupScaleX = fieldGroup.scaleX();
