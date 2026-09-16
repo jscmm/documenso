@@ -12,6 +12,7 @@ export type FieldToRender = Pick<
   'envelopeItemId' | 'recipientId' | 'type' | 'page' | 'customText' | 'inserted' | 'recipientId'
 > & {
   renderId: string; // A unique ID for the field in the render.
+  secondaryId?: string | null; // The field's public identifier, printed under a framed signature.
   width: number;
   height: number;
   positionX: number;

@@ -1,7 +1,7 @@
 import Konva from 'konva';
 
 import { getFieldValueTextStyle } from '../../constants/field-style';
-import { DEFAULT_STANDARD_FONT_SIZE } from '../../constants/pdf';
+import { DEFAULT_STANDARD_FONT_SIZE, getSignatureFontFamily } from '../../constants/pdf';
 import type { GenericTextFieldTypeMetas } from '../../types/field-meta';
 import {
   FIELD_DEFAULT_GENERIC_ALIGN,
@@ -11,6 +11,7 @@ import {
   resolveFieldOverflowMode,
 } from '../../types/field-meta';
 import { calculateOverflowLayout } from './calculate-overflow-layout';
+import { renderSignatureFrame } from './field-frame';
 import {
   createFieldHoverInteraction,
   konvaTextFontFamily,
@@ -107,12 +108,18 @@ const upsertFieldText = (field: FieldToRender, options: RenderFieldElementOption
   // Inserted values may carry a configured colour and font style; labels stay plain.
   const { fill: textFill, fontStyle: textFontStyle } = getFieldValueTextStyle(field.type, isLabel);
 
+  // Inserted initials are a signature mark: the signature's handwriting font,
+  // sized to the box, rather than the field font.
+  const isInitials = field.type === 'INITIALS' && !isLabel && textToRender.length > 0;
+  const textFontFamily = isInitials ? getSignatureFontFamily(textToRender) : konvaTextFontFamily;
+  const renderFontSize = isInitials ? Math.max(textFontSize, Math.min(fieldHeight * 0.7, 24)) : textFontSize;
+
   const overflowLayout = calculateOverflowLayout({
     overflowMode: resolveFieldOverflowMode(fieldMeta),
     isLabel,
     textToRender,
-    fontSize: textFontSize,
-    fontFamily: konvaTextFontFamily,
+    fontSize: renderFontSize,
+    fontFamily: textFontFamily,
     fontStyle: textFontStyle,
     lineHeight: textLineHeight,
     letterSpacing: textLetterSpacing,
@@ -136,11 +143,11 @@ const upsertFieldText = (field: FieldToRender, options: RenderFieldElementOption
     verticalAlign: overflowLayout.verticalAlign,
     wrap: overflowLayout.wrap,
     text: textToRender,
-    fontSize: textFontSize,
+    fontSize: renderFontSize,
     align: overflowLayout.textAlign,
     lineHeight: textLineHeight,
     letterSpacing: textLetterSpacing,
-    fontFamily: konvaTextFontFamily,
+    fontFamily: textFontFamily,
     fontStyle: textFontStyle,
     fill: textFill,
     width: overflowLayout.width,
@@ -193,6 +200,18 @@ export const renderGenericTextFieldElement = (field: FieldToRender, options: Ren
 
   fieldGroup.add(fieldRect);
   fieldGroup.add(fieldText);
+
+  if (field.type === 'INITIALS') {
+    const { fieldHeight } = calculateFieldPosition(field, pageWidth, pageHeight);
+    renderSignatureFrame({
+      fieldGroup,
+      height: fieldHeight,
+      kind: 'initials',
+      caption: 'Initial',
+      mode,
+      inserted: Boolean(field.inserted),
+    });
+  }
 
   fieldGroup.on('transform', () => {
     const groupScaleX = fieldGroup.scaleX();

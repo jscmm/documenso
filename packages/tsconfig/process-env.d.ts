@@ -66,6 +66,8 @@ declare namespace NodeJS {
     NEXT_PUBLIC_FIELD_TEXT_COLOR?: string;
     NEXT_PUBLIC_FIELD_TEXT_FONT_STYLE?: string;
     NEXT_PUBLIC_FIELD_TEXT_STYLE_TYPES?: string;
+    NEXT_PUBLIC_SIGNATURE_FRAME?: string;
+    NEXT_PUBLIC_SIGNATURE_FRAME_COLOR?: string;
     NEXT_PRIVATE_USE_LEGACY_SIGNING_SUBFILTER?: string;
 
     NEXT_PRIVATE_SMTP_TRANSPORT?: 'mailchannels' | 'resend' | 'smtp-auth' | 'smtp-api';
