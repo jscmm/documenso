@@ -35,3 +35,13 @@ describe('getSignatureFrameColor', () => {
     expect(getSignatureFrameColor()).toBe('#4c3bcf');
   });
 });
+
+describe('formatFrameIdentifier', () => {
+  it('drops the prefix, upper-cases and shortens', async () => {
+    const { formatFrameIdentifier } = await import('../universal/field-renderer/field-frame');
+    expect(formatFrameIdentifier('field_15d86cec0f14496abcdef')).toBe('15D86CEC0F14496...');
+    expect(formatFrameIdentifier('abc-123')).toBe('ABC123');
+    expect(formatFrameIdentifier('')).toBeUndefined();
+    expect(formatFrameIdentifier(null)).toBeUndefined();
+  });
+});
