@@ -26,13 +26,13 @@ describe('isSignatureFrameEnabled', () => {
 describe('getSignatureFrameColor', () => {
   it('defaults and validates', () => {
     vi.stubEnv('NEXT_PUBLIC_SIGNATURE_FRAME_COLOR', undefined);
-    expect(getSignatureFrameColor()).toBe('#4c3bcf');
+    expect(getSignatureFrameColor()).toBe('#3300ff');
 
     vi.stubEnv('NEXT_PUBLIC_SIGNATURE_FRAME_COLOR', '#0077d4');
     expect(getSignatureFrameColor()).toBe('#0077d4');
 
     vi.stubEnv('NEXT_PUBLIC_SIGNATURE_FRAME_COLOR', 'not a colour');
-    expect(getSignatureFrameColor()).toBe('#4c3bcf');
+    expect(getSignatureFrameColor()).toBe('#3300ff');
   });
 });
 

@@ -242,11 +242,11 @@ export const renderSignatureFieldElement = (field: FieldToRender, options: Rende
   fieldGroup.add(fieldRect);
   fieldGroup.add(fieldSignature);
 
-  const { fieldWidth: frameWidth, fieldHeight: frameHeight } = calculateFieldPosition(field, pageWidth, pageHeight);
+  const { fieldHeight: frameHeight } = calculateFieldPosition(field, pageWidth, pageHeight);
   renderSignatureFrame({
     fieldGroup,
-    width: frameWidth,
     height: frameHeight,
+    kind: 'signature',
     caption: 'Signed by:',
     mode,
     inserted: Boolean(field.inserted),

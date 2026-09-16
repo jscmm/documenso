@@ -202,11 +202,11 @@ export const renderGenericTextFieldElement = (field: FieldToRender, options: Ren
   fieldGroup.add(fieldText);
 
   if (field.type === 'INITIALS') {
-    const { fieldWidth, fieldHeight } = calculateFieldPosition(field, pageWidth, pageHeight);
+    const { fieldHeight } = calculateFieldPosition(field, pageWidth, pageHeight);
     renderSignatureFrame({
       fieldGroup,
-      width: fieldWidth,
       height: fieldHeight,
+      kind: 'initials',
       caption: 'Initial',
       mode,
       inserted: Boolean(field.inserted),

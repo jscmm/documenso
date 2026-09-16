@@ -2,7 +2,7 @@ import { colord } from 'colord';
 
 import { env } from '../utils/env';
 
-export const DEFAULT_SIGNATURE_FRAME_COLOR = '#4c3bcf';
+export const DEFAULT_SIGNATURE_FRAME_COLOR = '#3300ff';
 
 /**
  * Whether inserted signatures and initials are drawn with a frame on the

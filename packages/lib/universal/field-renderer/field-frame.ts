@@ -3,19 +3,36 @@ import Konva from 'konva';
 import { getSignatureFrameColor, isSignatureFrameEnabled } from '../../constants/signature-frame';
 import type { FieldRenderMode } from './field-renderer';
 
-export const FRAME_TICK = 12; // length of the top and bottom ticks
-export const FRAME_STROKE = 1.5;
-export const FRAME_CAPTION_SIZE = 6;
-export const FRAME_CAPTION_GAP = 2; // between the caption's baseline and the field's top edge
 // The interface font (registered for the seal renderer too), not the field font.
 export const FRAME_CAPTION_FONT = 'Inter, sans-serif';
-
+export const FRAME_STROKE = 0.8;
 export const FRAME_IDENTIFIER_LENGTH = 15;
+
+export type FrameKind = 'signature' | 'initials';
+
+type FrameSpec = {
+  radius: number;
+  tick: number; // the rules run from the corner to here; caption and identifier start just after
+  captionSize: number;
+  identifierSize: number;
+};
+
+/**
+ * The frame is the field's box: its top and bottom rules are the box's top
+ * and bottom edges, so the caller decides where the mark sits on the page.
+ * Proportions measured off a signed page: a 0.8 pt stroke, 6 pt corners,
+ * rules that stop where the 6.5 pt bold caption begins, the identifier in
+ * 5.5 pt on the bottom rule. Initials use a smaller mark.
+ */
+const FRAME_SPECS: Record<FrameKind, FrameSpec> = {
+  signature: { radius: 6, tick: 15, captionSize: 6.5, identifierSize: 5.5 },
+  initials: { radius: 4, tick: 10, captionSize: 5, identifierSize: 0 },
+};
 
 type SignatureFrameOptions = {
   fieldGroup: Konva.Group;
-  width: number;
   height: number;
+  kind: FrameKind;
   caption: string;
   mode: FieldRenderMode;
   inserted: boolean;
@@ -44,37 +61,44 @@ export const formatFrameIdentifier = (secondaryId: string | null | undefined): s
 
 /**
  * A bracket down the left edge of an inserted signature or initials field,
- * with a small caption above it. Drawn on the signing page and into the
- * sealed PDF only when the instance enables it; never in the editor.
+ * with a small caption on its top rule and, for signatures, the identifier
+ * on its bottom rule. Drawn on the signing page and into the sealed PDF only
+ * when the instance enables it; never in the editor.
  */
 export const renderSignatureFrame = (options: SignatureFrameOptions) => {
-  const { fieldGroup, width, height, caption, mode, inserted, identifier } = options;
+  const { fieldGroup, height, kind, caption, mode, inserted, identifier } = options;
 
   if (mode === 'edit' || !inserted || !isSignatureFrameEnabled()) {
     return;
   }
 
+  const spec = FRAME_SPECS[kind];
   const color = getSignatureFrameColor();
-  const tick = Math.min(FRAME_TICK, width / 3);
+  const top = 0;
+  const bottom = height;
+  const r = Math.min(spec.radius, height / 2);
+  const x = FRAME_STROKE / 2;
 
-  const bracket = new Konva.Line({
+  // Rounded corners as quadratic curves with the corner as control point.
+  const bracket = new Konva.Path({
     name: 'signature-frame',
-    points: [tick, 0, 0, 0, 0, height, tick, height],
+    data:
+      `M ${spec.tick} ${top} H ${x + r} Q ${x} ${top} ${x} ${top + r} ` +
+      `V ${bottom - r} Q ${x} ${bottom} ${x + r} ${bottom} H ${spec.tick}`,
     stroke: color,
     strokeWidth: FRAME_STROKE,
-    lineCap: 'round',
+    lineCap: 'butt',
     lineJoin: 'round',
-    tension: 0,
-    bezier: false,
     listening: false,
   });
 
+  // The caption sits on the top rule: the rule runs through the middle of its capitals.
   const label = new Konva.Text({
     name: 'signature-frame-caption',
-    x: tick + 1,
-    y: -(FRAME_CAPTION_SIZE + FRAME_CAPTION_GAP),
+    x: spec.tick + 1,
+    y: top - spec.captionSize * 0.55,
     text: caption,
-    fontSize: FRAME_CAPTION_SIZE,
+    fontSize: spec.captionSize,
     fontFamily: FRAME_CAPTION_FONT,
     fontStyle: 'bold',
     fill: 'black',
@@ -84,16 +108,16 @@ export const renderSignatureFrame = (options: SignatureFrameOptions) => {
   fieldGroup.add(bracket);
   fieldGroup.add(label);
 
-  if (identifier) {
+  if (identifier && spec.identifierSize > 0) {
     fieldGroup.add(
       new Konva.Text({
         name: 'signature-frame-identifier',
-        x: tick + 1,
-        y: height + FRAME_CAPTION_GAP,
+        x: spec.tick + 1,
+        y: bottom - spec.identifierSize * 0.55,
         text: identifier,
-        fontSize: FRAME_CAPTION_SIZE,
+        fontSize: spec.identifierSize,
         fontFamily: FRAME_CAPTION_FONT,
-        fill: '#374151',
+        fill: '#333333',
         listening: false,
       }),
     );
