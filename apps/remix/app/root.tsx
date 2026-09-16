@@ -20,7 +20,7 @@ import {
   useLoaderData,
   useMatches,
 } from 'react-router';
-import { PreventFlashOnWrongTheme, ThemeProvider, useTheme } from 'remix-themes';
+import { PreventFlashOnWrongTheme, Theme, ThemeProvider, useTheme } from 'remix-themes';
 import type { Route } from './+types/root';
 import stylesheet from './app.css?url';
 import { GenericErrorLayout } from './components/general/generic-error-layout';
@@ -90,11 +90,25 @@ export async function loader({ context, request }: Route.LoaderArgs) {
   );
 }
 
+/**
+ * Recipient routes (signing pages) always render in the light theme. Custom
+ * branding pins colours such as `--background` for those pages, and under a
+ * viewer's dark system theme the dark foreground would land on that light
+ * background and vanish. Signers also get the same page on every device.
+ */
+const useIsRecipientRoute = () => {
+  const matches = useMatches();
+
+  return matches.some((m) => m.id?.startsWith('routes/_recipient+'));
+};
+
 export function Layout({ children }: { children: React.ReactNode }) {
   const { theme, basePath } = useLoaderData<typeof loader>() || {};
 
+  const isRecipientRoute = useIsRecipientRoute();
+
   return (
-    <ThemeProvider specifiedTheme={theme} themeAction={`${basePath ?? ''}/api/theme`}>
+    <ThemeProvider specifiedTheme={isRecipientRoute ? Theme.LIGHT : theme} themeAction={`${basePath ?? ''}/api/theme`}>
       <LayoutContent>{children}</LayoutContent>
     </ThemeProvider>
   );
@@ -118,8 +132,7 @@ export function LayoutContent({ children }: { children: React.ReactNode }) {
   // <style> block from `RecipientBranding` applies to BOTH the main tree and
   // any portaled content (Radix dialogs/popovers/dropdowns mount outside the
   // route tree, attached directly to document.body).
-  const matches = useMatches();
-  const isRecipientRoute = matches.some((m) => m.id?.startsWith('routes/_recipient+'));
+  const isRecipientRoute = useIsRecipientRoute();
 
   return (
     // `suppressHydrationWarning` because `remix-themes` intentionally mutates
@@ -138,7 +151,8 @@ export function LayoutContent({ children }: { children: React.ReactNode }) {
         <Meta />
         <Links nonce={nonce(cspNonce)} />
         <meta name="google" content="notranslate" />
-        <PreventFlashOnWrongTheme ssrTheme={Boolean(data.theme)} nonce={nonce(cspNonce)} />
+        {/* Recipient routes have a fixed theme, so the client must not re-resolve it from the system. */}
+        <PreventFlashOnWrongTheme ssrTheme={Boolean(data.theme) || isRecipientRoute} nonce={nonce(cspNonce)} />
 
         {disableAnimations && (
           <style
