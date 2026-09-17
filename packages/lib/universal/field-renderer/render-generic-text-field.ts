@@ -108,11 +108,11 @@ const upsertFieldText = (field: FieldToRender, options: RenderFieldElementOption
   // Inserted values may carry a configured colour and font style; labels stay plain.
   const { fill: textFill, fontStyle: textFontStyle } = getFieldValueTextStyle(field.type, isLabel);
 
-  // Inserted initials are a signature mark: the signature's handwriting font,
-  // sized to the box, rather than the field font.
+  // Inserted initials are a signature mark: the signature's handwriting font
+  // at the field's font size when one is set, otherwise sized to the box.
   const isInitials = field.type === 'INITIALS' && !isLabel && textToRender.length > 0;
   const textFontFamily = isInitials ? getSignatureFontFamily(textToRender) : konvaTextFontFamily;
-  const renderFontSize = isInitials ? Math.max(textFontSize, Math.min(fieldHeight * 0.7, 24)) : textFontSize;
+  const renderFontSize = isInitials && !fieldMeta?.fontSize ? Math.min(fieldHeight * 0.7, 24) : textFontSize;
 
   const overflowLayout = calculateOverflowLayout({
     overflowMode: resolveFieldOverflowMode(fieldMeta),
