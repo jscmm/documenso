@@ -48,6 +48,7 @@ type UseEditorFieldsResponse = {
 
   // Field operations
   addField: (field: Omit<TLocalField, 'formId'>) => TLocalField;
+  addFields: (fields: Omit<TLocalField, 'formId'>[]) => TLocalField[];
   setFieldId: (formId: string, id: number) => void;
   removeFieldsByFormId: (formIds: string[]) => void;
   updateFieldByFormId: (formId: string, updates: Partial<TLocalField>) => void;
@@ -146,6 +147,27 @@ export const useEditorFields = ({ envelope, handleFieldsUpdate }: EditorFieldsPr
       return field;
     },
     [append, triggerFieldsUpdate, setSelectedField],
+  );
+
+  /**
+   * Add several fields at once (a paste) without selecting each in turn.
+   */
+  const addFields = useCallback(
+    (fieldsData: Omit<TLocalField, 'formId'>[]): TLocalField[] => {
+      const fields = fieldsData.map((fieldData) => ({
+        ...fieldData,
+        formId: nanoid(12),
+        ...restrictFieldPosValues(fieldData),
+      }));
+
+      if (fields.length > 0) {
+        append(fields);
+        triggerFieldsUpdate();
+      }
+
+      return fields;
+    },
+    [append, triggerFieldsUpdate],
   );
 
   const removeFieldsByFormId = useCallback(
@@ -290,6 +312,7 @@ export const useEditorFields = ({ envelope, handleFieldsUpdate }: EditorFieldsPr
 
     // Field operations
     addField,
+    addFields,
     setFieldId,
     removeFieldsByFormId,
     updateFieldByFormId,
