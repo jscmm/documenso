@@ -1,10 +1,13 @@
 import {
   copyFieldsToClipboard,
+  getFieldPointer,
   getFieldShortcut,
   isActiveFieldTarget,
   isTextEntryTarget,
+  pasteFieldsAtPointer,
   pasteFieldsFromClipboard,
   setActiveFieldTarget,
+  setFieldPointer,
 } from '@documenso/lib/client-only/field-clipboard';
 import { useDebouncedValue } from '@documenso/lib/client-only/hooks/use-debounced-value';
 import type { TLocalField } from '@documenso/lib/client-only/hooks/use-editor-fields';
@@ -630,9 +633,11 @@ export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageR
   };
 
   /**
-   * Delete / Backspace removes the selected fields, Cmd/Ctrl+C copies them,
-   * Cmd/Ctrl+V pastes the copied fields onto this page. Only the page the
-   * author last pressed on answers, and never while typing in an input.
+   * Delete / Backspace removes the selected fields and Cmd/Ctrl+C copies
+   * them (on the page the author last pressed on). Cmd/Ctrl+V pastes the
+   * copied fields at the pointer, answered by the page under it; with no
+   * pointer over a page, and with Shift, they are pasted in place on the page
+   * last pressed on. Never while typing in an input.
    */
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -641,12 +646,19 @@ export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageR
       }
 
       const target = { envelopeItemId: currentEnvelopeItem.id, page: pageNumber };
+      const shortcut = getFieldShortcut(event);
+      const at = getFieldPointer();
+      const pasteAtPointer = shortcut === 'paste' && at !== null;
 
-      if (!isActiveFieldTarget(target)) {
+      // A paste at the pointer belongs to the page under it; everything else
+      // to the page last pressed on.
+      if (
+        pasteAtPointer
+          ? at.envelopeItemId !== target.envelopeItemId || at.page !== target.page
+          : !isActiveFieldTarget(target)
+      ) {
         return;
       }
-
-      const shortcut = getFieldShortcut(event);
 
       if (shortcut === 'delete') {
         const removable = getSelectedLocalFields().filter((field) => canModifyFieldsOf(field.recipientId));
@@ -671,8 +683,9 @@ export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageR
         copyFieldsToClipboard(fields);
       }
 
-      if (shortcut === 'paste') {
-        const fields = pasteFieldsFromClipboard(target).filter((field) => canModifyFieldsOf(field.recipientId));
+      if (shortcut === 'paste' || shortcut === 'paste-in-place') {
+        const pasted = pasteAtPointer && at ? pasteFieldsAtPointer(at) : pasteFieldsFromClipboard(target);
+        const fields = pasted.filter((field) => canModifyFieldsOf(field.recipientId));
 
         if (fields.length === 0) {
           return;
@@ -849,6 +862,18 @@ export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageR
         ref={konvaContainer}
         // Keyboard shortcuts go to the page last pressed on.
         onPointerDownCapture={() => setActiveFieldTarget({ envelopeItemId: currentEnvelopeItem.id, page: pageNumber })}
+        // Paste lands where the pointer is.
+        onPointerMove={(event) => {
+          const box = event.currentTarget.getBoundingClientRect();
+
+          setFieldPointer({
+            envelopeItemId: currentEnvelopeItem.id,
+            page: pageNumber,
+            x: ((event.clientX - box.left) / box.width) * 100,
+            y: ((event.clientY - box.top) / box.height) * 100,
+          });
+        }}
+        onPointerLeave={() => setFieldPointer(null)}
       ></div>
     </>
   );

@@ -7,6 +7,7 @@ import {
   isActiveFieldTarget,
   isTextEntryTarget,
   PASTE_OFFSET_PERCENT,
+  pasteFieldsAtPointer,
   pasteFieldsFromClipboard,
   resetFieldClipboard,
   setActiveFieldTarget,
@@ -76,6 +77,28 @@ describe('field clipboard', () => {
     expect(clipboardFieldCount()).toBe(1);
   });
 
+  it('pastes the group at the pointer, keeping its layout', () => {
+    copyFieldsToClipboard([field(), field({ formId: 'b', type: 'DATE', positionX: 60, positionY: 62 })]);
+
+    const pasted = pasteFieldsAtPointer({ envelopeItemId: 'item', page: 56, x: 20, y: 30 });
+
+    expect(pasted.map((f) => [f.page, f.positionX, f.positionY])).toEqual([
+      [56, 20, 30],
+      [56, 70, 32],
+    ]);
+  });
+
+  it('moves a group pasted near the edge back onto the page', () => {
+    copyFieldsToClipboard([field(), field({ formId: 'b', positionX: 60 })]);
+
+    // the group is 68% wide (10..78) and 3.7% tall
+    const pasted = pasteFieldsAtPointer({ envelopeItemId: 'item', page: 54, x: 90, y: 99 });
+
+    expect(pasted[0].positionX).toBeCloseTo(32);
+    expect(pasted[1].positionX + pasted[1].width).toBeCloseTo(100);
+    expect(pasted[0].positionY + pasted[0].height).toBeCloseTo(100);
+  });
+
   it('pastes nothing before a copy', () => {
     expect(pasteFieldsFromClipboard({ envelopeItemId: 'item', page: 1 })).toEqual([]);
   });
@@ -96,12 +119,14 @@ describe('getFieldShortcut', () => {
     expect(getFieldShortcut(key('c', { metaKey: true }))).toBe('copy');
     expect(getFieldShortcut(key('C', { ctrlKey: true }))).toBe('copy');
     expect(getFieldShortcut(key('v', { metaKey: true }))).toBe('paste');
+    expect(getFieldShortcut(key('V', { metaKey: true, shiftKey: true }))).toBe('paste-in-place');
+    expect(getFieldShortcut(key('v', { ctrlKey: true, shiftKey: true }))).toBe('paste-in-place');
   });
 
   it('ignores other keys and modified deletes', () => {
     expect(getFieldShortcut(key('c'))).toBeNull();
     expect(getFieldShortcut(key('Backspace', { metaKey: true }))).toBeNull();
-    expect(getFieldShortcut(key('v', { metaKey: true, shiftKey: true }))).toBeNull();
+    expect(getFieldShortcut(key('c', { metaKey: true, shiftKey: true }))).toBeNull();
     expect(getFieldShortcut(key('x', { metaKey: true }))).toBeNull();
   });
 });
