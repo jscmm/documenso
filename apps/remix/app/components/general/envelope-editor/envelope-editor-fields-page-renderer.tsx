@@ -1,3 +1,14 @@
+import {
+  copyFieldsToClipboard,
+  getFieldPointer,
+  getFieldShortcut,
+  isActiveFieldTarget,
+  isTextEntryTarget,
+  pasteFieldsAtPointer,
+  pasteFieldsFromClipboard,
+  setActiveFieldTarget,
+  setFieldPointer,
+} from '@documenso/lib/client-only/field-clipboard';
 import { useDebouncedValue } from '@documenso/lib/client-only/hooks/use-debounced-value';
 import type { TLocalField } from '@documenso/lib/client-only/hooks/use-editor-fields';
 import { usePageRenderer } from '@documenso/lib/client-only/hooks/use-page-renderer';
@@ -47,6 +58,11 @@ export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageR
   const [selectedKonvaFieldGroups, setSelectedKonvaFieldGroups] = useState<Konva.Group[]>([]);
 
   const [isFieldChanging, setIsFieldChanging] = useState(false);
+
+  /**
+   * Fields just pasted onto this page, selected once they are on the canvas.
+   */
+  const pendingPasteSelection = useRef<string[] | null>(null);
   const [pendingFieldCreation, setPendingFieldCreation] = useState<Konva.Rect | null>(null);
 
   /**
@@ -519,6 +535,21 @@ export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageR
       setSelectedFields(liveSelectedFieldGroups);
     }
 
+    // Select what was just pasted, so it can be moved as one.
+    if (pendingPasteSelection.current) {
+      const pastedGroups = pendingPasteSelection.current
+        .map((formId) => pageLayer.current?.findOne(`#${formId}`))
+        .filter((node): node is Konva.Group => node instanceof Konva.Group);
+
+      if (pastedGroups.length === pendingPasteSelection.current.length) {
+        pendingPasteSelection.current = null;
+        setSelectedFields(pastedGroups);
+        interactiveTransformer.current?.forceUpdate();
+        pageLayer.current.batchDraw();
+        return;
+      }
+    }
+
     // Mirror the editor's single selected field onto the canvas (Konva) selection.
     //
     // `addField` already marks a newly created field as the selected field, so this
@@ -589,6 +620,86 @@ export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageR
 
     setSelectedFields([]);
   };
+
+  const getSelectedLocalFields = () =>
+    selectedKonvaFieldGroups
+      .map((field) => editorFields.getFieldByFormId(field.id()))
+      .filter((field) => field !== undefined);
+
+  const canModifyFieldsOf = (recipientId: number) => {
+    const recipient = envelope.recipients.find((r) => r.id === recipientId);
+
+    return recipient ? canRecipientFieldsBeModified(recipient, envelope.fields) : false;
+  };
+
+  /**
+   * Delete / Backspace removes the selected fields and Cmd/Ctrl+C copies
+   * them (on the page the author last pressed on). Cmd/Ctrl+V pastes the
+   * copied fields at the pointer, answered by the page under it; with no
+   * pointer over a page, and with Shift, they are pasted in place on the page
+   * last pressed on. Never while typing in an input.
+   */
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!currentEnvelopeItem || event.defaultPrevented || isTextEntryTarget(event.target)) {
+        return;
+      }
+
+      const target = { envelopeItemId: currentEnvelopeItem.id, page: pageNumber };
+      const shortcut = getFieldShortcut(event);
+      const at = getFieldPointer();
+      const pasteAtPointer = shortcut === 'paste' && at !== null;
+
+      // A paste at the pointer belongs to the page under it; everything else
+      // to the page last pressed on.
+      if (
+        pasteAtPointer
+          ? at.envelopeItemId !== target.envelopeItemId || at.page !== target.page
+          : !isActiveFieldTarget(target)
+      ) {
+        return;
+      }
+
+      if (shortcut === 'delete') {
+        const removable = getSelectedLocalFields().filter((field) => canModifyFieldsOf(field.recipientId));
+
+        if (removable.length === 0) {
+          return;
+        }
+
+        event.preventDefault();
+        editorFields.removeFieldsByFormId(removable.map((field) => field.formId));
+        setSelectedFields([]);
+      }
+
+      if (shortcut === 'copy') {
+        const fields = getSelectedLocalFields();
+
+        if (fields.length === 0) {
+          return;
+        }
+
+        event.preventDefault();
+        copyFieldsToClipboard(fields);
+      }
+
+      if (shortcut === 'paste' || shortcut === 'paste-in-place') {
+        const pasted = pasteAtPointer && at ? pasteFieldsAtPointer(at) : pasteFieldsFromClipboard(target);
+        const fields = pasted.filter((field) => canModifyFieldsOf(field.recipientId));
+
+        if (fields.length === 0) {
+          return;
+        }
+
+        event.preventDefault();
+        pendingPasteSelection.current = editorFields.addFields(fields).map((field) => field.formId);
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [selectedKonvaFieldGroups, currentEnvelopeItem?.id, pageNumber, editorFields, envelope]);
 
   const changeSelectedFieldsRecipients = (recipientId: number) => {
     const fields = selectedKonvaFieldGroups
@@ -746,7 +857,24 @@ export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageR
       )}
 
       {/* The element Konva will inject it's canvas into. */}
-      <div className="konva-container absolute inset-0 z-10 w-full" ref={konvaContainer}></div>
+      <div
+        className="konva-container absolute inset-0 z-10 w-full"
+        ref={konvaContainer}
+        // Keyboard shortcuts go to the page last pressed on.
+        onPointerDownCapture={() => setActiveFieldTarget({ envelopeItemId: currentEnvelopeItem.id, page: pageNumber })}
+        // Paste lands where the pointer is.
+        onPointerMove={(event) => {
+          const box = event.currentTarget.getBoundingClientRect();
+
+          setFieldPointer({
+            envelopeItemId: currentEnvelopeItem.id,
+            page: pageNumber,
+            x: ((event.clientX - box.left) / box.width) * 100,
+            y: ((event.clientY - box.top) / box.height) * 100,
+          });
+        }}
+        onPointerLeave={() => setFieldPointer(null)}
+      ></div>
     </>
   );
 };
