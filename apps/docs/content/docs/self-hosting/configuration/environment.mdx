@@ -86,6 +86,8 @@ Callback URL: `https://<your-domain>/api/auth/callback/microsoft`
 | `NEXT_PRIVATE_OIDC_PROVIDER_LABEL` | `OIDC`  | Label displayed on the OIDC sign-in button         |
 | `NEXT_PRIVATE_OIDC_SKIP_VERIFY`    | `false` | Skip email verification for OIDC accounts          |
 | `NEXT_PRIVATE_OIDC_PROMPT`         | `login` | OIDC prompt parameter. Set to empty string to omit |
+| `NEXT_PRIVATE_OIDC_SYNC_NAME`     | `false` | Update the user's name from the `name` claim on every OIDC signin |
+| `NEXT_PRIVATE_OIDC_AUTO_JOIN_ORGANISATION` | - | Organisation url (or id) every OIDC user joins as a member on signin |
 
 ### Webhooks
 
@@ -342,6 +344,8 @@ NEXT_PUBLIC_DISABLE_SIGNIN="true"
 When OIDC is the only enabled signin transport on your instance, `/signin` automatically redirects users straight to the OIDC provider instead of showing the signin form. The page renders a spinner while the redirect happens. No extra configuration is required — disabling every other signin method is enough to trigger it.
 
 - **`NEXT_PUBLIC_DISABLE_OIDC_AUTO_REDIRECT`**: Set to `true` to opt out of the automatic redirect and keep rendering the signin page even when OIDC is the only enabled transport.
+
+An application that signs its users in through the same provider can link to `/signin?provider=oidc` (optionally with `returnTo`) to start the OIDC signin straight away, whatever other methods are enabled.
 
 The redirect only triggers when OIDC is configured and email/password, Google, and Microsoft signin are all disabled. If any other transport remains enabled, the signin form is shown as normal.
 
