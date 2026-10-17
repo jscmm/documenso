@@ -7,6 +7,7 @@ import {
 import { AppError, AppErrorCode } from '@documenso/lib/errors/app-error';
 import { getEmailBlocklistDomains } from '@documenso/lib/server-only/site-settings/get-email-blocklist-domains';
 import { onCreateUserHook } from '@documenso/lib/server-only/user/create-user';
+import { provisionOidcUser } from '@documenso/lib/server-only/user/provision-oidc-user';
 import { deletedServiceAccountEmail } from '@documenso/lib/server-only/user/service-accounts/deleted-account';
 import { legacyServiceAccountEmail } from '@documenso/lib/server-only/user/service-accounts/legacy-service-account';
 import { isValidReturnTo, normalizeReturnTo } from '@documenso/lib/utils/is-valid-return-to';
@@ -55,8 +56,18 @@ export const handleOAuthCallbackUrl = async (options: HandleOAuthCallbackUrlOpti
     },
   });
 
+  // Users of the generic OIDC provider can be provisioned from their claims on every sign-in
+  // (NEXT_PRIVATE_OIDC_SYNC_NAME, NEXT_PRIVATE_OIDC_AUTO_JOIN_ORGANISATION).
+  const provision = async (userId: number) => {
+    if (clientOptions.id === 'oidc') {
+      await provisionOidcUser({ userId, name });
+    }
+  };
+
   // Directly log in user if account already exists.
   if (existingAccount) {
+    await provision(existingAccount.user.id);
+
     await onAuthorize({ userId: existingAccount.user.id }, c);
 
     return c.redirect(redirectPath, 302);
@@ -113,6 +124,8 @@ export const handleOAuthCallbackUrl = async (options: HandleOAuthCallbackUrlOpti
         });
       }
     });
+
+    await provision(userWithSameEmail.id);
 
     await onAuthorize({ userId: userWithSameEmail.id }, c);
 
@@ -178,6 +191,8 @@ export const handleOAuthCallbackUrl = async (options: HandleOAuthCallbackUrlOpti
     // Todo: (RR7) Add logging.
     console.error(err);
   });
+
+  await provision(createdUser.id);
 
   await onAuthorize({ userId: createdUser.id }, c);
 

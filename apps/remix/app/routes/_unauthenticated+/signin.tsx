@@ -9,6 +9,7 @@ import {
   isSignupEnabledForProvider,
   OIDC_PROVIDER_LABEL,
 } from '@documenso/lib/constants/auth';
+import { isOidcSigninRequested } from '@documenso/lib/universal/oidc-provisioning';
 import { isValidReturnTo, normalizeReturnTo } from '@documenso/lib/utils/is-valid-return-to';
 import { Alert, AlertDescription } from '@documenso/ui/primitives/alert';
 import { msg } from '@lingui/core/macro';
@@ -42,7 +43,10 @@ export async function loader({ request }: Route.LoaderArgs) {
   const isOIDCOnlyTransport =
     isOIDCSSOEnabled && !isEmailPasswordSigninEnabled && !isGoogleSSOEnabled && !isMicrosoftSSOEnabled;
 
-  const shouldAutoRedirectToOIDC = isOIDCOnlyTransport && !IS_OIDC_AUTO_REDIRECT_DISABLED;
+  // `/signin?provider=oidc` asks for OIDC explicitly, whatever else is enabled.
+  const isOIDCRequested = isOIDCSSOEnabled && isOidcSigninRequested(new URL(request.url).searchParams);
+
+  const shouldAutoRedirectToOIDC = isOIDCRequested || (isOIDCOnlyTransport && !IS_OIDC_AUTO_REDIRECT_DISABLED);
 
   const oidcProviderLabel = OIDC_PROVIDER_LABEL;
 
