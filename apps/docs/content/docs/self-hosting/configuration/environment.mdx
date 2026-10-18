@@ -87,7 +87,7 @@ Callback URL: `https://<your-domain>/api/auth/callback/microsoft`
 | `NEXT_PRIVATE_OIDC_SKIP_VERIFY`    | `false` | Skip email verification for OIDC accounts          |
 | `NEXT_PRIVATE_OIDC_PROMPT`         | `login` | OIDC prompt parameter. Set to empty string to omit |
 | `NEXT_PRIVATE_OIDC_SYNC_NAME`     | `false` | Update the user's name from the `name` claim on every OIDC signin |
-| `NEXT_PRIVATE_OIDC_AUTO_JOIN_ORGANISATION` | - | Organisation url (or id) every OIDC user joins as a member on signin |
+| `NEXT_PRIVATE_OIDC_AUTO_JOIN_ORGANISATION` | - | Organisation url (or id) every OIDC user joins as a member on signin; a signin with no `returnTo` lands in its first team the user can open |
 
 ### Webhooks
 

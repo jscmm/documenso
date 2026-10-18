@@ -58,9 +58,18 @@ export const handleOAuthCallbackUrl = async (options: HandleOAuthCallbackUrlOpti
 
   // Users of the generic OIDC provider can be provisioned from their claims on every sign-in
   // (NEXT_PRIVATE_OIDC_SYNC_NAME, NEXT_PRIVATE_OIDC_AUTO_JOIN_ORGANISATION).
+  // A sign-in with no destination of its own lands in the auto-join organisation's team.
+  let redirectTo = redirectPath;
+
   const provision = async (userId: number) => {
-    if (clientOptions.id === 'oidc') {
-      await provisionOidcUser({ userId, name });
+    if (clientOptions.id !== 'oidc') {
+      return;
+    }
+
+    const landing = await provisionOidcUser({ userId, name });
+
+    if (landing && redirectPath === formatPath('/')) {
+      redirectTo = formatPath(landing);
     }
   };
 
@@ -70,7 +79,7 @@ export const handleOAuthCallbackUrl = async (options: HandleOAuthCallbackUrlOpti
 
     await onAuthorize({ userId: existingAccount.user.id }, c);
 
-    return c.redirect(redirectPath, 302);
+    return c.redirect(redirectTo, 302);
   }
 
   const userWithSameEmail = await prisma.user.findFirst({
@@ -129,7 +138,7 @@ export const handleOAuthCallbackUrl = async (options: HandleOAuthCallbackUrlOpti
 
     await onAuthorize({ userId: userWithSameEmail.id }, c);
 
-    return c.redirect(redirectPath, 302);
+    return c.redirect(redirectTo, 302);
   }
 
   // Check if signups are disabled for this provider.
@@ -196,7 +205,7 @@ export const handleOAuthCallbackUrl = async (options: HandleOAuthCallbackUrlOpti
 
   await onAuthorize({ userId: createdUser.id }, c);
 
-  return c.redirect(redirectPath, 302);
+  return c.redirect(redirectTo, 302);
 };
 
 export const validateOauth = async (options: HandleOAuthCallbackUrlOptions) => {
