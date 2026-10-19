@@ -290,6 +290,7 @@ For detailed certificate setup, see [Signing Certificate](/docs/self-hosting/con
 | `NEXT_PUBLIC_FIELD_TEXT_STYLE_TYPES`  | Comma-separated field types (`NAME`, `EMAIL`, `DATE`, `INITIALS`, `TEXT`, `NUMBER`) that take the colour and style | `NAME,EMAIL,TEXT,NUMBER` |
 | `NEXT_PUBLIC_SIGNATURE_FRAME`         | `true` draws a bracket down the left edge of inserted signatures and initials with a small caption above ("Signed by:" / "Initial"), on the signing page and in the sealed PDF | `false` |
 | `NEXT_PUBLIC_SIGNATURE_FRAME_COLOR`   | CSS colour of that bracket                                                            | `#3300ff` |
+| `NEXT_PRIVATE_SKIP_AUTO_PLACE_FIELDS` | `true` skips the `{{placeholder}}` scan (auto-placed fields) on PDFs uploaded with an API token (envelope create, add or replace envelope items), so the upload reads no page text and creates no fields from placeholders; for integrations that place every field themselves. Web app uploads keep the scan | `false` |
 
 ### Signup Restrictions
 

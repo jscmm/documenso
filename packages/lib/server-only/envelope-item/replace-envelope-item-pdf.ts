@@ -1,8 +1,10 @@
 import { normalizePdf } from '@documenso/lib/server-only/pdf/normalize-pdf';
 import { DOCUMENT_AUDIT_LOG_TYPE } from '@documenso/lib/types/document-audit-logs';
+import { shouldSkipPlaceholderScan } from '@documenso/lib/universal/auto-place-fields-options';
 import type { ApiRequestMetadata } from '@documenso/lib/universal/extract-request-metadata';
 import { putPdfFileServerSide } from '@documenso/lib/universal/upload/put-file.server';
 import { createDocumentAuditLogData } from '@documenso/lib/utils/document-audit-logs';
+import { env } from '@documenso/lib/utils/env';
 import { prisma } from '@documenso/prisma';
 import type { Envelope, Field, Recipient } from '@prisma/client';
 
@@ -85,7 +87,9 @@ export const UNSAFE_replaceEnvelopeItemPdf = async ({
     flattenForm: envelope.type !== 'TEMPLATE',
   });
 
-  const { cleanedPdf, placeholders } = await extractPdfPlaceholders(normalized);
+  const { cleanedPdf, placeholders } = await extractPdfPlaceholders(normalized, {
+    skip: shouldSkipPlaceholderScan((variable) => env(variable), apiRequestMetadata),
+  });
 
   // Upload the new PDF and get a new DocumentData record.
   const { documentData: newDocumentData, filePageCount } = await putPdfFileServerSide({
