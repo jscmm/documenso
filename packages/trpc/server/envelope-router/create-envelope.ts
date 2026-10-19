@@ -4,8 +4,10 @@ import { convertToPdf } from '@documenso/lib/server-only/document-conversion';
 import { createEnvelope } from '@documenso/lib/server-only/envelope/create-envelope';
 import { extractPdfPlaceholders } from '@documenso/lib/server-only/pdf/auto-place-fields';
 import { normalizePdf } from '@documenso/lib/server-only/pdf/normalize-pdf';
+import { shouldSkipPlaceholderScan } from '@documenso/lib/universal/auto-place-fields-options';
 import type { ApiRequestMetadata } from '@documenso/lib/universal/extract-request-metadata';
 import { putPdfFileServerSide } from '@documenso/lib/universal/upload/put-file.server';
+import { env } from '@documenso/lib/utils/env';
 import { EnvelopeType } from '@prisma/client';
 import type { Logger } from 'pino';
 
@@ -124,7 +126,9 @@ export const createEnvelopeRouteCaller = async ({
       });
 
       // Todo: Embeds - Might need to add this for client-side embeds in the future.
-      const { cleanedPdf, placeholders } = await extractPdfPlaceholders(normalized);
+      const { cleanedPdf, placeholders } = await extractPdfPlaceholders(normalized, {
+        skip: shouldSkipPlaceholderScan((variable) => env(variable), apiRequestMetadata),
+      });
 
       const { documentData } = await putPdfFileServerSide({
         name: file.name,

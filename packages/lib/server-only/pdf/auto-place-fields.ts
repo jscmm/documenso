@@ -179,10 +179,17 @@ export const removePlaceholdersFromPDF = async (pdf: Buffer, placeholders?: Plac
  *
  * Returns the cleaned PDF buffer and the extracted placeholders. If no
  * placeholders are found the original buffer is returned as-is.
+ *
+ * With `skip` the PDF is not read at all: no placeholders, original buffer.
  */
 export const extractPdfPlaceholders = async (
   pdf: Buffer,
+  options: { skip?: boolean } = {},
 ): Promise<{ cleanedPdf: Buffer; placeholders: PlaceholderInfo[] }> => {
+  if (options.skip) {
+    return { cleanedPdf: pdf, placeholders: [] };
+  }
+
   const placeholders = await extractPlaceholdersFromPDF(pdf);
 
   if (placeholders.length === 0) {
