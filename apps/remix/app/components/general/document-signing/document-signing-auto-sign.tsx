@@ -1,6 +1,7 @@
 import { unsafe_useEffectOnce } from '@documenso/lib/client-only/hooks/use-effect-once';
 import { AUTO_SIGNABLE_FIELD_TYPES, getAutoSignThreshold } from '@documenso/lib/constants/autosign';
 import { DocumentAuth } from '@documenso/lib/types/document-auth';
+import { isRequiredField } from '@documenso/lib/utils/advanced-fields-helpers';
 import { extractInitials } from '@documenso/lib/utils/recipient-formatter';
 import { trpc } from '@documenso/trpc/react';
 import { Button } from '@documenso/ui/primitives/button';
@@ -59,6 +60,11 @@ export const DocumentSigningAutoSign = ({ recipient, fields }: DocumentSigningAu
     }
 
     if (!AUTO_SIGNABLE_FIELD_TYPES.includes(field.type)) {
+      return false;
+    }
+
+    // Filling an optional field is the signer's own choice, e.g. initialing a waiver.
+    if (!isRequiredField(field)) {
       return false;
     }
 

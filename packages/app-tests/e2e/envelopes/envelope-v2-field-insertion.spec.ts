@@ -1,9 +1,11 @@
 import { DEFAULT_DOCUMENT_DATE_FORMAT } from '@documenso/lib/constants/date-formats';
 import { DEFAULT_DOCUMENT_TIME_ZONE } from '@documenso/lib/constants/time-zones';
+import { getEnvelopeItemPdfUrl } from '@documenso/lib/utils/envelope-download';
 import { prisma } from '@documenso/prisma';
 import { expect, test } from '@playwright/test';
 import { DocumentStatus, FieldType } from '@prisma/client';
 import { DateTime } from 'luxon';
+import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
 
 import { apiSeedPendingDocument } from '../fixtures/api-seeds';
 
@@ -252,5 +254,102 @@ test.describe('V2 envelope field insertion during signing', () => {
 
       expect(dbEnvelope.status).toBe(DocumentStatus.COMPLETED);
     }).toPass();
+  });
+
+  test('an optional initials field can be left blank when completing a V2 envelope', async ({ page, request }) => {
+    const { envelope, distributeResult } = await apiSeedPendingDocument(request, {
+      recipients: [{ email: 'signer-optional-initials@test.documenso.com', name: 'Optional Initials' }],
+      fieldsPerRecipient: [
+        [
+          {
+            type: FieldType.INITIALS,
+            page: 1,
+            positionX: 5,
+            positionY: 5,
+            width: 5,
+            height: 5,
+            fieldMeta: { type: 'initials', required: false },
+          },
+          { type: FieldType.SIGNATURE, page: 1, positionX: 5, positionY: 15, width: 5, height: 5 },
+        ],
+      ],
+    });
+
+    const { token } = distributeResult.recipients[0];
+
+    await page.goto(`/sign/${token}`);
+
+    await expect(page.locator(PDF_PAGE_SELECTOR).first()).toBeVisible({ timeout: 30_000 });
+
+    const canvas = page.locator('.konva-container canvas').first();
+    await expect(canvas).toBeVisible({ timeout: 30_000 });
+
+    // Only the signature counts towards the remaining fields.
+    await expect(page.getByText('1 Field Remaining').first()).toBeVisible();
+
+    await page.getByTestId('signature-pad-dialog-button').click();
+    await page.getByRole('tab', { name: 'Type' }).click();
+    await page.getByTestId('signature-pad-type-input').fill('Signature');
+    await page.getByRole('button', { name: 'Next' }).click();
+
+    const canvasBox = await canvas.boundingBox();
+
+    if (!canvasBox) {
+      throw new Error('Canvas bounding box not found');
+    }
+
+    const sigField = envelope.fields.find((f) => f.type === FieldType.SIGNATURE);
+
+    if (!sigField) {
+      throw new Error('Signature field not found');
+    }
+
+    const x =
+      (Number(sigField.positionX) / 100) * canvasBox.width + ((Number(sigField.width) / 100) * canvasBox.width) / 2;
+    const y =
+      (Number(sigField.positionY) / 100) * canvasBox.height + ((Number(sigField.height) / 100) * canvasBox.height) / 2;
+
+    await canvas.click({ position: { x, y } });
+
+    await expect(page.getByText('0 Fields Remaining').first()).toBeVisible({ timeout: 10_000 });
+
+    await page.getByRole('button', { name: 'Complete' }).click();
+    await expect(page.getByRole('heading', { name: 'Are you sure?' })).toBeVisible();
+    await page.getByRole('button', { name: 'Sign' }).click();
+
+    await page.waitForURL(`/sign/${token}/complete`);
+    await expect(page.getByText('Document Signed')).toBeVisible();
+
+    const initialsField = await prisma.field.findFirstOrThrow({
+      where: { envelopeId: envelope.id, type: FieldType.INITIALS },
+    });
+
+    expect(initialsField.inserted).toBe(false);
+    expect(initialsField.fieldMeta).toMatchObject({ type: 'initials', required: false });
+
+    await expect(async () => {
+      const dbEnvelope = await prisma.envelope.findUniqueOrThrow({
+        where: { id: envelope.id },
+      });
+
+      expect(dbEnvelope.status).toBe(DocumentStatus.COMPLETED);
+    }).toPass();
+
+    const completedEnvelope = await prisma.envelope.findUniqueOrThrow({
+      where: { id: envelope.id },
+      include: { envelopeItems: true },
+    });
+
+    const documentUrl = getEnvelopeItemPdfUrl({
+      type: 'download',
+      envelopeItem: completedEnvelope.envelopeItems[0],
+      token,
+      version: 'signed',
+    });
+
+    const pdfData = await fetch(documentUrl).then(async (res) => await res.arrayBuffer());
+    const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(pdfData) }).promise;
+
+    expect(pdf.numPages).toBeGreaterThanOrEqual(1);
   });
 });
