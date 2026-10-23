@@ -3,6 +3,13 @@ import { verifyEmbeddingPresignToken } from '@documenso/lib/server-only/embeddin
 import type { DocumentDataVersion } from '@documenso/lib/types/document';
 import { sha256 } from '@documenso/lib/universal/crypto';
 import { getFileServerSide } from '@documenso/lib/universal/upload/get-file.server';
+import { getPresignGetUrl } from '@documenso/lib/universal/upload/server-actions';
+import {
+  shouldRedirectToUpload,
+  UPLOAD_REDIRECT_CACHE_SECONDS,
+  UPLOAD_REDIRECT_EXPIRY_SECONDS,
+} from '@documenso/lib/universal/upload/upload-redirect';
+import { env } from '@documenso/lib/utils/env';
 import { prisma } from '@documenso/prisma';
 import { sValidator } from '@hono/standard-validator';
 import type { DocumentData, EnvelopeItem } from '@prisma/client';
@@ -130,6 +137,28 @@ export const handleEnvelopeItemPdfRequest = async ({
 
   if (c.req.header('If-None-Match') === etag) {
     return c.status(304);
+  }
+
+  // Callers have already checked access. Send the browser to the stored object instead
+  // of proxying it, so the PDF viewer can load it with range requests.
+  if (shouldRedirectToUpload(env, envelopeItem.documentData.type)) {
+    const redirectUrl = await getPresignGetUrl(documentDataToUse, {
+      expiresIn: UPLOAD_REDIRECT_EXPIRY_SECONDS,
+      responseContentType: 'application/pdf',
+      responseCacheControl: `private, max-age=${UPLOAD_REDIRECT_EXPIRY_SECONDS}`,
+    })
+      .then(({ url }) => url)
+      .catch((error) => {
+        console.error(error);
+
+        return null;
+      });
+
+    if (redirectUrl) {
+      c.header('Cache-Control', `private, max-age=${UPLOAD_REDIRECT_CACHE_SECONDS}`);
+
+      return c.redirect(redirectUrl, 302);
+    }
   }
 
   const file = await getFileServerSide({

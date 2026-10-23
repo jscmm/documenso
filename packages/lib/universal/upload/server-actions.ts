@@ -1,4 +1,4 @@
-import { getStorageProvider } from './providers';
+import { getStorageProvider, type PresignGetUrlOptions } from './providers';
 
 export const getPresignPostUrl = async (fileName: string, contentType: string, userId?: number) => {
   return getStorageProvider().getPresignPostUrl(fileName, contentType, userId);
@@ -8,8 +8,8 @@ export const getAbsolutePresignPostUrl = async (key: string) => {
   return getStorageProvider().getAbsolutePresignPostUrl(key);
 };
 
-export const getPresignGetUrl = async (key: string) => {
-  return getStorageProvider().getPresignGetUrl(key);
+export const getPresignGetUrl = async (key: string, options?: PresignGetUrlOptions) => {
+  return getStorageProvider().getPresignGetUrl(key, options);
 };
 
 /**
