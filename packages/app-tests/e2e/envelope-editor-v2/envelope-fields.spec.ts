@@ -353,9 +353,10 @@ const runAllFieldTypesFlow = async (surface: TEnvelopeEditorSurface): Promise<TA
   await root.locator('[data-testid="field-form-textAlign"]').click();
   await root.getByRole('option', { name: 'Right' }).click();
 
-  // 4. Initials: place and set fontSize to 16.
+  // 4. Initials: place, set fontSize to 16 and make it optional (it starts required).
   await placeFieldOnPdf(root, 'Initials', { x: 120, y: 200 });
   await root.locator('[data-testid="field-form-fontSize"]').fill('16');
+  await root.locator('[data-testid="field-form-required"]').click();
 
   // 5. Date: place and set textAlign to center.
   await placeFieldOnPdf(root, 'Date', { x: 120, y: 250 });
@@ -496,6 +497,7 @@ const assertAllFieldTypesPersistedInDatabase = async ({
   // INITIALS
   expect(meta(FieldType.INITIALS).type).toBe('initials');
   expect(meta(FieldType.INITIALS).fontSize).toBe(16);
+  expect(meta(FieldType.INITIALS).required).toBe(false);
 
   // DATE
   expect(meta(FieldType.DATE).type).toBe('date');
