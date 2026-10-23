@@ -23,3 +23,7 @@ runs:
         npm run prisma:generate
       env:
         HUSKY: '0'
+        # Browsers are installed explicitly by the jobs that need them (`npx playwright
+        # install`). The postinstall download fails on runner images Playwright does not
+        # know yet, such as ubuntu26.04.
+        PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
