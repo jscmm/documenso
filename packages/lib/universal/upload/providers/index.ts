@@ -4,7 +4,13 @@ import { AzureBlobProvider } from './azure-blob-provider';
 import { S3Provider } from './s3-provider';
 import type { StorageProvider } from './storage-provider';
 
-export type { PresignedUrl, StorageProvider, UploadFileInput, UploadFileResult } from './storage-provider';
+export type {
+  PresignedUrl,
+  PresignGetUrlOptions,
+  StorageProvider,
+  UploadFileInput,
+  UploadFileResult,
+} from './storage-provider';
 
 let cached: StorageProvider | null = null;
 

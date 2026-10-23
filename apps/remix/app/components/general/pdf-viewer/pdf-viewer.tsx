@@ -3,11 +3,10 @@ import { PDF_VIEWER_PAGE_CLASSNAME } from '@documenso/lib/constants/pdf-viewer';
 import { cn } from '@documenso/ui/lib/utils';
 import { useToast } from '@documenso/ui/primitives/use-toast';
 import { Trans, useLingui } from '@lingui/react/macro';
-import pMap from 'p-map';
 import * as pdfjsLib from 'pdfjs-dist';
 import pdfjsWorker from 'pdfjs-dist/build/pdf.worker?url';
 import type React from 'react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import type { ScrollTarget } from '../virtual-list/use-virtual-list';
 import { useVirtualList } from '../virtual-list/use-virtual-list';
@@ -27,6 +26,11 @@ type LoadingState = 'loading' | 'loaded' | 'error';
 const LOW_RENDER_RESOLUTION = 1;
 const HIGH_RENDER_RESOLUTION = 2;
 const IDLE_RENDER_DELAY = 200;
+
+/**
+ * Size of each range request pdf.js makes when the server supports ranges.
+ */
+const PDF_RANGE_CHUNK_SIZE = 262144;
 
 export type PDFViewerProps = {
   className?: string;
@@ -83,6 +87,7 @@ export default function PDFViewer({
     }
 
     let isCancelled = false;
+    let loadingTask: pdfjsLib.PDFDocumentLoadingTask | null = null;
 
     const fetchMetadata = async () => {
       try {
@@ -93,23 +98,22 @@ export default function PDFViewer({
           return;
         }
 
-        let result: Uint8Array | null = typeof data === 'string' ? null : new Uint8Array(data);
+        // A URL lets pdf.js use range requests when the server supports them, so the
+        // first page renders before the whole file has arrived. Without range support
+        // pdf.js downloads the whole file, like before.
+        loadingTask = pdfjsLib.getDocument(
+          typeof data === 'string'
+            ? {
+                url: data,
+                rangeChunkSize: PDF_RANGE_CHUNK_SIZE,
+                disableAutoFetch: true,
+                disableStream: false,
+                cMapUrl: '/static/cmaps/',
+              }
+            : { data: new Uint8Array(data), cMapUrl: '/static/cmaps/' },
+        );
 
-        if (typeof data === 'string') {
-          const response = await fetch(data);
-
-          if (!response.ok) {
-            throw new Error(`Failed to fetch PDF data: ${response.status}`);
-          }
-
-          result = new Uint8Array(await response.arrayBuffer());
-        }
-
-        if (isCancelled) {
-          return;
-        }
-
-        const loadedPdf = await pdfjsLib.getDocument({ data: result!, cMapUrl: '/static/cmaps/' }).promise;
+        const loadedPdf = await loadingTask.promise;
 
         if (isCancelled) {
           await loadedPdf.destroy();
@@ -124,24 +128,39 @@ export default function PDFViewer({
         // eslint-disable-next-line require-atomic-updates
         pdfRef.current = loadedPdf;
 
-        // Fetch the pages
-        const pages = await pMap(Array.from({ length: loadedPdf.numPages }), async (_, pageIndex) => {
-          const page = await loadedPdf.getPage(pageIndex + 1);
-          const viewport = page.getViewport({ scale: 1 });
+        // Ask for every page's size now, so the worker answers these before it starts
+        // rendering. pdf.js has usually read every page dictionary while loading the
+        // document, so this needs little or no extra data.
+        const pageSizesPromise = getPageSizes(loadedPdf).catch(() => null);
 
-          return {
-            width: viewport.width,
-            height: viewport.height,
-          };
-        });
+        // Only wait for the first page. Every other page starts with its size until the
+        // real sizes arrive, and a page that renders before then reports its own size
+        // (see `onPageSizeChange`).
+        const firstPage = await loadedPdf.getPage(1);
+        const firstViewport = firstPage.getViewport({ scale: 1 });
 
         if (isCancelled) {
           return;
         }
 
-        setPages(pages);
+        const firstPageMeta: PageMeta = {
+          width: firstViewport.width,
+          height: firstViewport.height,
+        };
+
+        setPages(Array.from({ length: loadedPdf.numPages }, () => firstPageMeta));
 
         setLoadingState('loaded');
+
+        // Applying all sizes at once keeps jumps to a page (such as the next field)
+        // accurate on documents with mixed page sizes.
+        const pageSizes = await pageSizesPromise;
+
+        if (isCancelled || !pageSizes) {
+          return;
+        }
+
+        setPages((currentPages) => (hasSamePageSizes(currentPages, pageSizes) ? currentPages : pageSizes));
       } catch (err) {
         if (isCancelled) {
           return;
@@ -163,12 +182,30 @@ export default function PDFViewer({
     return () => {
       isCancelled = true;
 
+      // Stops the requests of a load that has not finished yet.
+      void loadingTask?.destroy();
+
       if (pdfRef.current) {
         void pdfRef.current.destroy();
         pdfRef.current = null;
       }
     };
   }, [data]);
+
+  const onPageSizeChange = useCallback((pageIndex: number, pageMeta: PageMeta) => {
+    setPages((currentPages) => {
+      const currentPage = currentPages[pageIndex];
+
+      if (!currentPage || (currentPage.width === pageMeta.width && currentPage.height === pageMeta.height)) {
+        return currentPages;
+      }
+
+      const nextPages = [...currentPages];
+      nextPages[pageIndex] = pageMeta;
+
+      return nextPages;
+    });
+  }, []);
 
   // Notify when document is loaded
   useEffect(() => {
@@ -207,6 +244,7 @@ export default function PDFViewer({
           pages={pages}
           pdf={pdfRef.current}
           customPageRenderer={customPageRenderer}
+          onPageSizeChange={onPageSizeChange}
         />
       )}
     </div>
@@ -220,6 +258,7 @@ type VirtualizedPageListProps = {
   numPages: number;
   pdf: pdfjsLib.PDFDocumentProxy;
   customPageRenderer?: React.FunctionComponent<{ pageData: PageRenderData }>;
+  onPageSizeChange: (pageIndex: number, pageMeta: PageMeta) => void;
 };
 
 const VirtualizedPageList = ({
@@ -229,6 +268,7 @@ const VirtualizedPageList = ({
   numPages,
   pdf,
   customPageRenderer,
+  onPageSizeChange,
 }: VirtualizedPageListProps) => {
   const contentRef = useRef<HTMLDivElement>(null);
 
@@ -297,6 +337,7 @@ const VirtualizedPageList = ({
               pdf={pdf}
               scale={scale}
               customPageRenderer={customPageRenderer}
+              onPageSizeChange={onPageSizeChange}
             />
 
             <p className="my-2 text-center text-[11px] text-muted-foreground/80">
@@ -320,6 +361,12 @@ type PdfViewerPageProps = {
   scaledHeight: number;
   scale: number;
   customPageRenderer?: React.FunctionComponent<{ pageData: PageRenderData }>;
+
+  /**
+   * Called before rendering when the page's real size differs from the size it was
+   * laid out with. The page renders once it has been given its real size.
+   */
+  onPageSizeChange: (pageIndex: number, pageMeta: PageMeta) => void;
 };
 
 const PdfViewerPage = ({
@@ -331,6 +378,7 @@ const PdfViewerPage = ({
   scaledHeight,
   scale,
   customPageRenderer: CustomPageRenderer,
+  onPageSizeChange,
 }: PdfViewerPageProps) => {
   const { imageProps, imageLoadingState } = usePdfPageImage({
     pageNumber,
@@ -340,6 +388,7 @@ const PdfViewerPage = ({
     scaledWidth,
     scaledHeight,
     scale,
+    onPageSizeChange,
   });
 
   return (
@@ -365,7 +414,16 @@ const PdfViewerPage = ({
 /**
  * Manages rendering a page from a pdf.
  */
-const usePdfPageImage = ({ pageNumber, pdf, scale, scaledWidth, scaledHeight }: PdfViewerPageProps) => {
+const usePdfPageImage = ({
+  pageNumber,
+  pdf,
+  scale,
+  unscaledWidth,
+  unscaledHeight,
+  scaledWidth,
+  scaledHeight,
+  onPageSizeChange,
+}: Omit<PdfViewerPageProps, 'customPageRenderer'>) => {
   const [imageLoadingState, setImageLoadingState] = useState<ImageLoadingState>('loading');
 
   const [imageUrl, setImageUrl] = useState('');
@@ -375,6 +433,10 @@ const usePdfPageImage = ({ pageNumber, pdf, scale, scaledWidth, scaledHeight }: 
   const renderedResolutionRef = useRef<number | null>(null);
   const renderedPageNumberRef = useRef<number | null>(null);
   const renderedPdfRef = useRef<pdfjsLib.PDFDocumentProxy | null>(null);
+
+  // Read through a ref so a new callback does not restart the render.
+  const onPageSizeChangeRef = useRef(onPageSizeChange);
+  onPageSizeChangeRef.current = onPageSizeChange;
 
   useEffect(() => {
     let isCancelled = false;
@@ -419,6 +481,19 @@ const usePdfPageImage = ({ pageNumber, pdf, scale, scaledWidth, scaledHeight }: 
         const page = await pdf.getPage(pageNumber);
 
         if (isCancelled) {
+          return;
+        }
+
+        const unscaledViewport = page.getViewport({ scale: 1 });
+
+        // The page was laid out with a placeholder size. Report the real size and wait
+        // to be rendered again with it, so the image and any field overlay match.
+        if (unscaledViewport.width !== unscaledWidth || unscaledViewport.height !== unscaledHeight) {
+          onPageSizeChangeRef.current(pageNumber - 1, {
+            width: unscaledViewport.width,
+            height: unscaledViewport.height,
+          });
+
           return;
         }
 
@@ -482,7 +557,7 @@ const usePdfPageImage = ({ pageNumber, pdf, scale, scaledWidth, scaledHeight }: 
 
       cancelRenderTask();
     };
-  }, [pdf, pageNumber, scale]);
+  }, [pdf, pageNumber, scale, unscaledWidth, unscaledHeight]);
 
   const imageProps = useMemo(
     (): React.ImgHTMLAttributes<HTMLImageElement> & Record<string, unknown> & { alt: '' } => ({
@@ -503,4 +578,27 @@ const usePdfPageImage = ({ pageNumber, pdf, scale, scaledWidth, scaledHeight }: 
     imageProps,
     imageLoadingState,
   };
+};
+
+/**
+ * Reads the unscaled size of every page.
+ */
+const getPageSizes = async (pdf: pdfjsLib.PDFDocumentProxy) => {
+  return await Promise.all(
+    Array.from({ length: pdf.numPages }, async (_, pageIndex): Promise<PageMeta> => {
+      const page = await pdf.getPage(pageIndex + 1);
+      const viewport = page.getViewport({ scale: 1 });
+
+      return {
+        width: viewport.width,
+        height: viewport.height,
+      };
+    }),
+  );
+};
+
+const hasSamePageSizes = (a: PageMeta[], b: PageMeta[]) => {
+  return (
+    a.length === b.length && a.every((page, index) => page.width === b[index].width && page.height === b[index].height)
+  );
 };

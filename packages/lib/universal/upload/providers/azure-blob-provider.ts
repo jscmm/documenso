@@ -8,9 +8,15 @@ import {
 import { env } from '@documenso/lib/utils/env';
 import slugify from '@sindresorhus/slugify';
 
-import { ONE_HOUR } from '../../../constants/time';
+import { ONE_HOUR, ONE_SECOND } from '../../../constants/time';
 import { alphaid } from '../../id';
-import type { PresignedUrl, StorageProvider, UploadFileInput, UploadFileResult } from './storage-provider';
+import type {
+  PresignedUrl,
+  PresignGetUrlOptions,
+  StorageProvider,
+  UploadFileInput,
+  UploadFileResult,
+} from './storage-provider';
 
 export class AzureBlobProvider implements StorageProvider {
   private serviceClient: BlobServiceClient;
@@ -32,8 +38,8 @@ export class AzureBlobProvider implements StorageProvider {
     this.serviceClient = new BlobServiceClient(url, this.credential);
   }
 
-  private buildSasUrl(key: string, permissions: BlobSASPermissions): string {
-    const expiresOn = new Date(Date.now() + ONE_HOUR);
+  private buildSasUrl(key: string, permissions: BlobSASPermissions, options: PresignGetUrlOptions = {}): string {
+    const expiresOn = new Date(Date.now() + (options.expiresIn ? options.expiresIn * ONE_SECOND : ONE_HOUR));
 
     const sasToken = generateBlobSASQueryParameters(
       {
@@ -41,6 +47,8 @@ export class AzureBlobProvider implements StorageProvider {
         blobName: key,
         permissions,
         expiresOn,
+        contentType: options.responseContentType,
+        cacheControl: options.responseCacheControl,
       },
       this.credential,
     ).toString();
@@ -72,8 +80,8 @@ export class AzureBlobProvider implements StorageProvider {
     return { key, url };
   }
 
-  async getPresignGetUrl(key: string): Promise<PresignedUrl> {
-    const url = this.buildSasUrl(key, BlobSASPermissions.parse('r'));
+  async getPresignGetUrl(key: string, options?: PresignGetUrlOptions): Promise<PresignedUrl> {
+    const url = this.buildSasUrl(key, BlobSASPermissions.parse('r'), options);
     return { key, url };
   }
 

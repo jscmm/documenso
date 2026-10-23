@@ -3,6 +3,23 @@ export type PresignedUrl = {
   url: string;
 };
 
+export type PresignGetUrlOptions = {
+  /**
+   * Seconds until the URL expires. Defaults to one hour.
+   */
+  expiresIn?: number;
+
+  /**
+   * `Content-Type` the storage service should answer with, where it supports it.
+   */
+  responseContentType?: string;
+
+  /**
+   * `Cache-Control` the storage service should answer with, where it supports it.
+   */
+  responseCacheControl?: string;
+};
+
 export type UploadFileInput = {
   name: string;
   type: string;
@@ -30,7 +47,7 @@ export interface StorageProvider {
   /**
    * Generate a presigned URL to download a file by key.
    */
-  getPresignGetUrl(key: string): Promise<PresignedUrl>;
+  getPresignGetUrl(key: string, options?: PresignGetUrlOptions): Promise<PresignedUrl>;
 
   /**
    * Server-side upload of a file's bytes. Returns the chosen key.

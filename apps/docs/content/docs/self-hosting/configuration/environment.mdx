@@ -291,6 +291,7 @@ For detailed certificate setup, see [Signing Certificate](/docs/self-hosting/con
 | `NEXT_PUBLIC_SIGNATURE_FRAME`         | `true` draws a bracket down the left edge of inserted signatures and initials with a small caption above ("Signed by:" / "Initial"), on the signing page and in the sealed PDF | `false` |
 | `NEXT_PUBLIC_SIGNATURE_FRAME_COLOR`   | CSS colour of that bracket                                                            | `#3300ff` |
 | `NEXT_PRIVATE_SKIP_AUTO_PLACE_FIELDS` | `true` skips the `{{placeholder}}` scan (auto-placed fields) on PDFs uploaded with an API token (envelope create, add or replace envelope items), so the upload reads no page text and creates no fields from placeholders; for integrations that place every field themselves. Web app uploads keep the scan | `false` |
+| `NEXT_PRIVATE_UPLOAD_REDIRECT`        | `true` answers envelope item PDF requests with a redirect to a presigned S3 URL that expires after 5 minutes, after the usual access checks, instead of proxying the file through the app; the viewer then loads large PDFs with range requests and shows the first page before the rest has downloaded. Only with `NEXT_PUBLIC_UPLOAD_TRANSPORT=s3`; files stored in the database and downloads stay proxied. The bucket needs a CORS rule for the app's origin: methods `GET` and `HEAD`, allowed header `Range`, exposed headers `Content-Range`, `Accept-Ranges`, `Content-Length` and `ETag` | `false` |
 
 ### Signup Restrictions
 

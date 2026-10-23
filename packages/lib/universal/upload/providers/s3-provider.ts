@@ -5,7 +5,13 @@ import slugify from '@sindresorhus/slugify';
 
 import { ONE_HOUR, ONE_SECOND } from '../../../constants/time';
 import { alphaid } from '../../id';
-import type { PresignedUrl, StorageProvider, UploadFileInput, UploadFileResult } from './storage-provider';
+import type {
+  PresignedUrl,
+  PresignGetUrlOptions,
+  StorageProvider,
+  UploadFileInput,
+  UploadFileResult,
+} from './storage-provider';
 
 export class S3Provider implements StorageProvider {
   private client: S3Client;
@@ -71,7 +77,9 @@ export class S3Provider implements StorageProvider {
     return { key, url };
   }
 
-  async getPresignGetUrl(key: string): Promise<PresignedUrl> {
+  async getPresignGetUrl(key: string, options: PresignGetUrlOptions = {}): Promise<PresignedUrl> {
+    const expiresIn = options.expiresIn ?? ONE_HOUR / ONE_SECOND;
+
     if (env('NEXT_PRIVATE_UPLOAD_DISTRIBUTION_DOMAIN')) {
       const distributionUrl = new URL(key, `${env('NEXT_PRIVATE_UPLOAD_DISTRIBUTION_DOMAIN')}`);
 
@@ -81,7 +89,7 @@ export class S3Provider implements StorageProvider {
         url: distributionUrl.toString(),
         keyPairId: `${env('NEXT_PRIVATE_UPLOAD_DISTRIBUTION_KEY_ID')}`,
         privateKey: `${env('NEXT_PRIVATE_UPLOAD_DISTRIBUTION_KEY_CONTENTS')}`,
-        dateLessThan: new Date(Date.now() + ONE_HOUR).toISOString(),
+        dateLessThan: new Date(Date.now() + expiresIn * ONE_SECOND).toISOString(),
       });
 
       return { key, url };
@@ -92,9 +100,11 @@ export class S3Provider implements StorageProvider {
     const command = new GetObjectCommand({
       Bucket: env('NEXT_PRIVATE_UPLOAD_BUCKET'),
       Key: key,
+      ResponseContentType: options.responseContentType,
+      ResponseCacheControl: options.responseCacheControl,
     });
 
-    const url = await getSignedUrl(this.client, command, { expiresIn: ONE_HOUR / ONE_SECOND });
+    const url = await getSignedUrl(this.client, command, { expiresIn });
     return { key, url };
   }
 
