@@ -156,6 +156,15 @@ describe('GET envelope item PDF (session)', () => {
     expect(mocks.getPresignGetUrl).not.toHaveBeenCalled();
   });
 
+  it('returns 404 for an embed session', async () => {
+    mocks.getOptionalSession.mockResolvedValue({ session: { isEmbed: true }, user: { id: 7 } });
+
+    const response = await sessionRoute.request(SESSION_URL);
+
+    expect(response.status).toBe(404);
+    expect(mocks.getPresignGetUrl).not.toHaveBeenCalled();
+  });
+
   it('returns 404 when the user has no access to the envelope', async () => {
     mocks.checkEnvelopeFileAccess.mockResolvedValue(false);
 
