@@ -7,6 +7,9 @@ declare namespace NodeJS {
     NEXT_PRIVATE_GOOGLE_CLIENT_ID?: string;
     NEXT_PRIVATE_GOOGLE_CLIENT_SECRET?: string;
 
+    NEXT_PRIVATE_MICROSOFT_CLIENT_ID?: string;
+    NEXT_PRIVATE_MICROSOFT_CLIENT_SECRET?: string;
+
     NEXT_PRIVATE_OIDC_WELL_KNOWN?: string;
     NEXT_PRIVATE_OIDC_CLIENT_ID?: string;
     NEXT_PRIVATE_OIDC_CLIENT_SECRET?: string;
@@ -17,6 +20,12 @@ declare namespace NodeJS {
 
     NEXT_PRIVATE_SKIP_AUTO_PLACE_FIELDS?: string;
     NEXT_PRIVATE_UPLOAD_REDIRECT?: string;
+
+    // Derived in `createPublicEnv()`; do not set manually.
+    NEXT_PUBLIC_GOOGLE_SSO_ENABLED?: 'true' | 'false';
+    NEXT_PUBLIC_MICROSOFT_SSO_ENABLED?: 'true' | 'false';
+    NEXT_PUBLIC_OIDC_SSO_ENABLED?: 'true' | 'false';
+    NEXT_PUBLIC_OIDC_PROVIDER_LABEL?: string;
 
     NEXT_PRIVATE_DATABASE_URL: string;
     NEXT_PRIVATE_ENCRYPTION_KEY: string;
@@ -64,6 +73,7 @@ declare namespace NodeJS {
     NEXT_PRIVATE_SIGNING_CSC_OAUTH_CLIENT_SECRET?: string;
     NEXT_PRIVATE_SIGNING_CSC_SIGNATURE_LEVEL?: 'AES' | 'QES';
     NEXT_PRIVATE_SIGNING_TIMESTAMP_AUTHORITY?: string;
+    NEXT_PRIVATE_SIGNING_REASON?: string;
     NEXT_PUBLIC_SIGNING_CONTACT_INFO?: string;
     NEXT_PUBLIC_AUTO_SIGN_THRESHOLD?: string;
     NEXT_PUBLIC_AUTO_INSERT_FIELD_TYPES?: string;
@@ -144,6 +154,13 @@ declare namespace NodeJS {
      */
     NEXT_PUBLIC_TURNSTILE_SITE_KEY?: string;
     NEXT_PRIVATE_TURNSTILE_SECRET_KEY?: string;
+
+    /**
+     * Legal & Data Protection environment variables
+     */
+    NEXT_PUBLIC_TERMS_OF_SERVICE_URL?: string;
+    NEXT_PUBLIC_PRIVACY_POLICY_URL?: string;
+    NEXT_PUBLIC_IMPRINT_URL?: string;
 
     /**
      * Google Vertex AI environment variables

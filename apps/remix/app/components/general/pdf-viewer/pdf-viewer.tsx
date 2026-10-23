@@ -1,10 +1,11 @@
+import { useAnalytics } from '@documenso/lib/client-only/hooks/use-analytics';
 import type { ImageLoadingState, PageRenderData } from '@documenso/lib/client-only/providers/envelope-render-provider';
 import { PDF_VIEWER_PAGE_CLASSNAME } from '@documenso/lib/constants/pdf-viewer';
 import { cn } from '@documenso/ui/lib/utils';
 import { useToast } from '@documenso/ui/primitives/use-toast';
 import { Trans, useLingui } from '@lingui/react/macro';
-import * as pdfjsLib from 'pdfjs-dist';
-import pdfjsWorker from 'pdfjs-dist/build/pdf.worker?url';
+import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
+import pdfjsWorker from 'pdfjs-dist/legacy/build/pdf.worker.mjs?url';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
@@ -72,6 +73,7 @@ export default function PDFViewer({
 }: PDFViewerProps) {
   const { t } = useLingui();
   const { toast } = useToast();
+  const analytics = useAnalytics();
 
   const $el = useRef<HTMLDivElement>(null);
 
@@ -168,6 +170,11 @@ export default function PDFViewer({
 
         console.error(err);
         setLoadingState('error');
+
+        analytics.captureException(err, {
+          source: 'pdf_viewer',
+          location: 'pdf_load',
+        });
 
         toast({
           title: t`Error`,
@@ -424,6 +431,8 @@ const usePdfPageImage = ({
   scaledHeight,
   onPageSizeChange,
 }: Omit<PdfViewerPageProps, 'customPageRenderer'>) => {
+  const analytics = useAnalytics();
+
   const [imageLoadingState, setImageLoadingState] = useState<ImageLoadingState>('loading');
 
   const [imageUrl, setImageUrl] = useState('');
@@ -532,6 +541,12 @@ const usePdfPageImage = ({
 
         if (!isCancelled) {
           console.error(err);
+
+          analytics.captureException(err, {
+            source: 'pdf_viewer',
+            location: 'pdf_page_render',
+          });
+
           setImageLoadingState('error');
         }
       } finally {
