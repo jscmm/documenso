@@ -11,17 +11,23 @@ import { onCreateUserHook } from '@documenso/lib/server-only/user/create-user';
 import { provisionOidcUser } from '@documenso/lib/server-only/user/provision-oidc-user';
 import { deletedServiceAccountEmail } from '@documenso/lib/server-only/user/service-accounts/deleted-account';
 import { legacyServiceAccountEmail } from '@documenso/lib/server-only/user/service-accounts/legacy-service-account';
+import {
+  OAUTH_PROVIDER_ERROR_COOKIE,
+  OAUTH_PROVIDER_ERROR_COOKIE_MAX_AGE,
+  providerRefusalMessage,
+} from '@documenso/lib/universal/oauth-provider-error';
 import { isValidReturnTo, normalizeReturnTo } from '@documenso/lib/utils/is-valid-return-to';
 import { logger } from '@documenso/lib/utils/logger';
 import { prisma } from '@documenso/prisma';
 import { UserSecurityAuditLogType } from '@prisma/client';
-import { decodeIdToken, OAuth2Client } from 'arctic';
+import { decodeIdToken, OAuth2Client, OAuth2RequestError } from 'arctic';
 import type { Context } from 'hono';
-import { deleteCookie } from 'hono/cookie';
+import { deleteCookie, setCookie } from 'hono/cookie';
 
 import type { OAuthClientOptions } from '../../config';
 import { AuthenticationErrorCode } from '../errors/error-codes';
 import { failEmbedAuthFlow } from '../handoff/record-embed-auth-failure';
+import { sessionCookieOptions } from '../session/session-cookies';
 import { onAuthorize } from './authorizer';
 import { getOpenIdConfiguration } from './open-id';
 
@@ -72,10 +78,37 @@ const handleOAuthCallback = async (options: HandleOAuthCallbackUrlOptions) => {
 
   const requestMeta = c.get('requestMetadata');
 
-  const { email, name, sub, accessToken, accessTokenExpiresAt, idToken, redirectPath } = await validateOauth({
-    c,
-    clientOptions,
-  });
+  let validated: Awaited<ReturnType<typeof validateOauth>>;
+
+  try {
+    validated = await validateOauth({ c, clientOptions });
+  } catch (err) {
+    if (!(err instanceof OAuth2RequestError)) {
+      throw err;
+    }
+
+    // The identity provider refused the token exchange: back to the sign-in page with a
+    // readable error (or the embed flow's error page), and the provider's own message for
+    // the user when it wrote one.
+    logger.error({
+      event: 'auth.oauth.provider_refused',
+      error: err,
+    });
+
+    const message = providerRefusalMessage(err.code, err.description);
+
+    if (message) {
+      setCookie(c, OAUTH_PROVIDER_ERROR_COOKIE, message, {
+        ...sessionCookieOptions,
+        sameSite: 'lax',
+        maxAge: OAUTH_PROVIDER_ERROR_COOKIE_MAX_AGE,
+      });
+    }
+
+    return redirectToSignInError(c, AuthenticationErrorCode.OAuthProviderRefused);
+  }
+
+  const { email, name, sub, accessToken, accessTokenExpiresAt, idToken, redirectPath } = validated;
 
   if (email.toLowerCase() === legacyServiceAccountEmail() || email.toLowerCase() === deletedServiceAccountEmail()) {
     const isEmbedFlow = await failEmbedAuthFlow(c, c.req.query('state'), 'service_account');

@@ -1,6 +1,9 @@
 import { authClient } from '@documenso/auth/client';
+import { AuthenticationErrorCode } from '@documenso/auth/server/lib/errors/error-codes';
+import { extractCookieFromHeaders } from '@documenso/auth/server/lib/utils/cookies';
 import { getOptionalSession } from '@documenso/auth/server/lib/utils/get-session';
 import {
+  getCookieDomain,
   IS_GOOGLE_SSO_ENABLED,
   IS_MICROSOFT_SSO_ENABLED,
   IS_OIDC_AUTO_REDIRECT_DISABLED,
@@ -9,6 +12,7 @@ import {
   isSignupEnabledForProvider,
   OIDC_PROVIDER_LABEL,
 } from '@documenso/lib/constants/auth';
+import { OAUTH_PROVIDER_ERROR_COOKIE, sanitizeProviderMessage } from '@documenso/lib/universal/oauth-provider-error';
 import { isOidcSigninRequested } from '@documenso/lib/universal/oidc-provisioning';
 import { isValidReturnTo, normalizeReturnTo } from '@documenso/lib/utils/is-valid-return-to';
 import { Alert, AlertDescription } from '@documenso/ui/primitives/alert';
@@ -17,7 +21,7 @@ import { useLingui } from '@lingui/react';
 import { Trans } from '@lingui/react/macro';
 import { Loader2Icon } from 'lucide-react';
 import { useEffect } from 'react';
-import { Link, redirect, useSearchParams } from 'react-router';
+import { data, Link, redirect, useSearchParams } from 'react-router';
 
 import { SignInForm } from '~/components/forms/signin';
 import { SIGNUP_ERROR_MESSAGES } from '~/components/forms/signup';
@@ -49,7 +53,25 @@ export async function loader({ request }: Route.LoaderArgs) {
   // `/signin?provider=oidc` asks for OIDC explicitly, whatever else is enabled.
   const isOIDCRequested = isOIDCSSOEnabled && isOidcSigninRequested(new URL(request.url).searchParams);
 
-  const shouldAutoRedirectToOIDC = isOIDCRequested || (isOIDCOnlyTransport && !IS_OIDC_AUTO_REDIRECT_DISABLED);
+  const errorParam = new URL(request.url).searchParams.get('error');
+
+  // Never redirect straight back to the provider after a failed sign-in: show the error instead.
+  const shouldAutoRedirectToOIDC =
+    !errorParam && (isOIDCRequested || (isOIDCOnlyTransport && !IS_OIDC_AUTO_REDIRECT_DISABLED));
+
+  // The message an identity provider wrote for the user when it refused the sign-in, set by
+  // the OAuth callback; read once.
+  const providerErrorCookie = extractCookieFromHeaders(OAUTH_PROVIDER_ERROR_COOKIE, request.headers);
+
+  let providerErrorMessage: string | null = null;
+
+  if (providerErrorCookie !== null && errorParam === AuthenticationErrorCode.OAuthProviderRefused) {
+    try {
+      providerErrorMessage = sanitizeProviderMessage(decodeURIComponent(providerErrorCookie));
+    } catch {
+      providerErrorMessage = null;
+    }
+  }
 
   const oidcProviderLabel = OIDC_PROVIDER_LABEL;
 
@@ -67,16 +89,27 @@ export async function loader({ request }: Route.LoaderArgs) {
     throw redirect(returnTo || '/');
   }
 
-  return {
+  const loaderData = {
     isEmailPasswordSigninEnabled,
     isGoogleSSOEnabled,
     isMicrosoftSSOEnabled,
     isOIDCSSOEnabled,
     isSignupEnabled,
     oidcProviderLabel,
+    providerErrorMessage,
     returnTo,
     shouldAutoRedirectToOIDC,
   };
+
+  if (providerErrorCookie === null) {
+    return loaderData;
+  }
+
+  return data(loaderData, {
+    headers: {
+      'Set-Cookie': `${OAUTH_PROVIDER_ERROR_COOKIE}=; Path=/; Domain=${getCookieDomain()}; Max-Age=0; HttpOnly; SameSite=Lax`,
+    },
+  });
 }
 
 export default function SignIn({ loaderData }: Route.ComponentProps) {
@@ -87,6 +120,7 @@ export default function SignIn({ loaderData }: Route.ComponentProps) {
     isOIDCSSOEnabled,
     isSignupEnabled,
     oidcProviderLabel,
+    providerErrorMessage,
     returnTo,
     shouldAutoRedirectToOIDC,
   } = loaderData;
@@ -97,6 +131,7 @@ export default function SignIn({ loaderData }: Route.ComponentProps) {
 
   const errorParam = searchParams.get('error');
   const signupError = errorParam ? SIGNUP_ERROR_MESSAGES[errorParam] : undefined;
+  const isProviderRefusal = errorParam === AuthenticationErrorCode.OAuthProviderRefused;
 
   useEffect(() => {
     if (!shouldAutoRedirectToOIDC) {
@@ -125,6 +160,16 @@ export default function SignIn({ loaderData }: Route.ComponentProps) {
         {signupError && (
           <Alert variant="destructive" className="mb-4">
             <AlertDescription>{_(signupError)}</AlertDescription>
+          </Alert>
+        )}
+
+        {isProviderRefusal && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertDescription>
+              {providerErrorMessage || (
+                <Trans>Your identity provider refused the sign-in. Please try again later.</Trans>
+              )}
+            </AlertDescription>
           </Alert>
         )}
 
