@@ -152,9 +152,11 @@ const handleOAuthCallback = async (options: HandleOAuthCallbackUrlOptions) => {
     return c.redirect(redirectPath, 302);
   }
 
+  // Case-insensitive: an account provisioned through the API is stored lowercased, and the
+  // identity provider may send the email with capitals.
   const userWithSameEmail = await prisma.user.findFirst({
     where: {
-      email: email,
+      email: { equals: email, mode: 'insensitive' },
     },
     select: {
       id: true,
