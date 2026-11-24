@@ -542,7 +542,6 @@ export const ConfigureFieldsView = ({
                         onMove={(node) => onFieldMove(node, index)}
                         onRemove={() => remove(index)}
                         onDuplicate={() => onFieldCopy(null, { duplicate: true })}
-                        onDuplicateAllPages={() => onFieldCopy(null, { duplicateAll: true })}
                         onFocus={() => setLastActiveField(field)}
                         onBlur={() => setLastActiveField(null)}
                         onAdvancedSettings={() => {

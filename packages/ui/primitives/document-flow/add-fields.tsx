@@ -635,10 +635,6 @@ export const AddFieldsFormPartial = ({
                         onFieldCopy(null, { duplicate: true });
                         void handleAutoSave();
                       }}
-                      onDuplicateAllPages={() => {
-                        onFieldCopy(null, { duplicateAll: true });
-                        void handleAutoSave();
-                      }}
                       onAdvancedSettings={() => {
                         setCurrentField(field);
                         handleAdvancedSettings();

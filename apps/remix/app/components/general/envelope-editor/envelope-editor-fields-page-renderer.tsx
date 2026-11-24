@@ -43,7 +43,7 @@ import type { FieldType } from '@prisma/client';
 import Konva from 'konva';
 import type { KonvaEventObject } from 'konva/lib/Node';
 import type { Transformer } from 'konva/lib/shapes/Transformer';
-import { CopyPlusIcon, ShapesIcon, SquareStackIcon, TrashIcon, UserCircleIcon } from 'lucide-react';
+import { CopyPlusIcon, ShapesIcon, TrashIcon, UserCircleIcon } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { fieldButtonList } from './envelope-editor-fields-drag-drop';
@@ -754,18 +754,6 @@ export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageR
     }
   };
 
-  const duplicatedSelectedFieldsOnAllPages = () => {
-    const fields = selectedKonvaFieldGroups
-      .map((field) => editorFields.getFieldByFormId(field.id()))
-      .filter((field) => field !== undefined);
-
-    for (const field of fields) {
-      editorFields.duplicateFieldToAllPages(field);
-    }
-
-    setSelectedFields([]);
-  };
-
   /**
    * Create a field from a pending field.
    */
@@ -828,7 +816,6 @@ export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageR
         !isAutoSelectedField && (
           <FieldActionButtons
             handleDuplicateSelectedFields={duplicatedSelectedFields}
-            handleDuplicateSelectedFieldsOnAllPages={duplicatedSelectedFieldsOnAllPages}
             handleDeleteSelectedFields={deletedSelectedFields}
             handleChangeRecipient={changeSelectedFieldsRecipients}
             handleChangeFieldType={changeSelectedFieldsType}
@@ -896,7 +883,6 @@ export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageR
 
 type FieldActionButtonsProps = React.HTMLAttributes<HTMLDivElement> & {
   handleDuplicateSelectedFields: () => void;
-  handleDuplicateSelectedFieldsOnAllPages: () => void;
   handleDeleteSelectedFields: () => void;
   handleChangeRecipient: (recipientId: number) => void;
   handleChangeFieldType: (type: FieldType) => void;
@@ -905,7 +891,6 @@ type FieldActionButtonsProps = React.HTMLAttributes<HTMLDivElement> & {
 
 const FieldActionButtons = ({
   handleDuplicateSelectedFields,
-  handleDuplicateSelectedFieldsOnAllPages,
   handleDeleteSelectedFields,
   handleChangeRecipient,
   handleChangeFieldType,
@@ -1006,16 +991,6 @@ const FieldActionButtons = ({
           onTouchEnd={handleDuplicateSelectedFields}
         >
           <CopyPlusIcon className="h-3 w-3" />
-        </button>
-
-        <button
-          type="button"
-          title={t`Duplicate on all pages`}
-          className="rounded-sm p-1.5 text-gray-400 transition-colors hover:bg-white/10 hover:text-gray-100"
-          onClick={handleDuplicateSelectedFieldsOnAllPages}
-          onTouchEnd={handleDuplicateSelectedFieldsOnAllPages}
-        >
-          <SquareStackIcon className="h-3 w-3" />
         </button>
 
         <button
