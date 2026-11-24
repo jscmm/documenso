@@ -4,6 +4,7 @@ import { useCurrentEnvelopeEditor } from '@documenso/lib/client-only/providers/e
 import { PDF_VIEWER_PAGE_SELECTOR } from '@documenso/lib/constants/pdf-viewer';
 import { FIELD_META_DEFAULT_VALUES } from '@documenso/lib/types/field-meta';
 import { nanoid } from '@documenso/lib/universal/id';
+import { getNewFieldScreenSize } from '@documenso/lib/utils/new-field-size';
 import { canRecipientFieldsBeModified } from '@documenso/lib/utils/recipients';
 import { SignatureIcon } from '@documenso/ui/icons/signature';
 import { getRecipientColorStyles } from '@documenso/ui/lib/recipient-colors';
@@ -28,6 +29,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 const MIN_HEIGHT_PX = 12;
 const MIN_WIDTH_PX = 36;
 
+// Only for a page that does not say its size in points.
 const DEFAULT_HEIGHT_PX = MIN_HEIGHT_PX * 2.5;
 const DEFAULT_WIDTH_PX = MIN_WIDTH_PX * 2.5;
 
@@ -125,12 +127,32 @@ export const EnvelopeEditorFieldDragDrop = ({
   });
 
   const fieldBounds = useRef({
-    height: 0,
-    width: 0,
+    height: DEFAULT_HEIGHT_PX,
+    width: DEFAULT_WIDTH_PX,
   });
+
+  /**
+   * Size the new field from the page under the cursor (or the first page), so it
+   * keeps one size in points at every zoom level.
+   */
+  const updateFieldBounds = useCallback(
+    (event: MouseEvent) => {
+      if (!selectedField) {
+        return;
+      }
+
+      const $page = getPage(event, PDF_VIEWER_PAGE_SELECTOR) ?? document.querySelector(PDF_VIEWER_PAGE_SELECTOR);
+      const size = $page ? getNewFieldScreenSize(selectedField, $page) : null;
+
+      fieldBounds.current = size ?? { height: DEFAULT_HEIGHT_PX, width: DEFAULT_WIDTH_PX };
+    },
+    [selectedField, getPage],
+  );
 
   const onMouseMove = useCallback(
     (event: MouseEvent) => {
+      updateFieldBounds(event);
+
       setIsFieldWithinBounds(
         isWithinPageBounds(event, PDF_VIEWER_PAGE_SELECTOR, fieldBounds.current.width, fieldBounds.current.height),
       );
@@ -140,7 +162,7 @@ export const EnvelopeEditorFieldDragDrop = ({
         y: event.clientY - fieldBounds.current.height / 2,
       });
     },
-    [isWithinPageBounds],
+    [isWithinPageBounds, updateFieldBounds],
   );
 
   const onMouseClick = useCallback(
@@ -148,6 +170,8 @@ export const EnvelopeEditorFieldDragDrop = ({
       if (!selectedField || !selectedRecipientId || !selectedEnvelopeItemId) {
         return;
       }
+
+      updateFieldBounds(event);
 
       const $page = getPage(event, PDF_VIEWER_PAGE_SELECTOR);
 
@@ -193,32 +217,16 @@ export const EnvelopeEditorFieldDragDrop = ({
       setIsFieldWithinBounds(false);
       setSelectedField(null);
     },
-    [isWithinPageBounds, selectedField, selectedRecipientId, selectedEnvelopeItemId, getPage, editorFields],
+    [
+      isWithinPageBounds,
+      selectedField,
+      selectedRecipientId,
+      selectedEnvelopeItemId,
+      getPage,
+      editorFields,
+      updateFieldBounds,
+    ],
   );
-
-  useEffect(() => {
-    const observer = new MutationObserver((_mutations) => {
-      const $page = document.querySelector(PDF_VIEWER_PAGE_SELECTOR);
-
-      if (!$page) {
-        return;
-      }
-
-      fieldBounds.current = {
-        height: Math.max(DEFAULT_HEIGHT_PX),
-        width: Math.max(DEFAULT_WIDTH_PX),
-      };
-    });
-
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true,
-    });
-
-    return () => {
-      observer.disconnect();
-    };
-  }, []);
 
   useEffect(() => {
     if (selectedField) {

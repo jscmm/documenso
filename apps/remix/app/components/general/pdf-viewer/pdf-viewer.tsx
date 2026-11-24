@@ -584,9 +584,12 @@ const usePdfPageImage = ({
       onError: () => setImageLoadingState('error'),
       src: imageUrl,
       'data-page-number': pageNumber,
+      // The page's own size in PDF points, so the editor can size new fields in points.
+      'data-page-width': unscaledWidth,
+      'data-page-height': unscaledHeight,
       draggable: false,
     }),
-    [scaledWidth, scaledHeight, imageUrl, pageNumber],
+    [scaledWidth, scaledHeight, unscaledWidth, unscaledHeight, imageUrl, pageNumber],
   );
 
   return {
