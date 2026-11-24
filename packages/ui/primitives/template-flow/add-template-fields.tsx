@@ -568,9 +568,6 @@ export const AddTemplateFieldsFormPartial = ({
                     onDuplicate={() => {
                       onFieldCopy(null, { duplicate: true });
                     }}
-                    onDuplicateAllPages={() => {
-                      onFieldCopy(null, { duplicateAll: true });
-                    }}
                     onAdvancedSettings={() => {
                       setCurrentField(field);
                       handleAdvancedSettings();
